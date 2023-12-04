@@ -1,0 +1,83 @@
+pretrained_model_name_or_path: "CompVis/stable-diffusion-v1-4"
+pretrained_cache_dir: "pretrained_stable_diffusion"
+revision: null
+tokenizer_name: null
+instance_data_dir: "dog/datasets--diffusers--dog-example/blobs"
+class_data_dir: "class_data"
+instance_prompt: "a photo of sks dog"
+class_prompt: "a photo of dog"
+with_prior_preservation: true
+prior_loss_weight: 0.5
+num_class_images: 100
+seed: null
+resolution: 512
+center_crop: false
+train_text_encoder: true
+train_batch_size: 1
+sample_batch_size: 4
+num_train_epochs: 1
+max_train_steps: 1600
+checkpointing_steps: 1700
+checkpoints_total_limit: null
+resume_from_checkpoint: null
+gradient_accumulation_steps: 1
+gradient_checkpointing: false
+learning_rate: 2e-5
+scale_lr: false
+lr_scheduler: constant
+lr_warmup_steps: 0
+lr_num_cycles: 1
+lr_power: 1.0
+use_8bit_adam: false
+dataloader_num_workers: 0
+adam_beta1: 0.9
+adam_beta2: 0.999
+adam_weight_decay: 1e-2
+adam_epsilon: 1e-08
+max_grad_norm: 1.0
+push_to_hub: false
+hub_token: null
+hub_model_id: null
+allow_tf32: false
+validation_prompt: "a photo of sks dog in the Acropolis"
+num_validation_images: 4
+validation_steps: 400
+mixed_precision: null
+prior_generation_precision: null
+local_rank: -1
+enable_xformers_memory_efficient_attention: false
+set_grads_to_none: false
+offset_noise: false
+snr_gamma: null
+pre_compute_text_embeddings: false
+tokenizer_max_length: null
+text_encoder_use_attention_mask: false
+skip_save_text_encoder: false
+validation_images: null
+class_labels_conditioning: false
+validation_scheduler: DPMSolverMultistepScheduler
+name: null
+output_dir: text-inversion-model
+num_dataloader_workers: 1
+no_trace_malloc: false
+
+
+lora:
+  use_lora: true
+  lora_r: 16
+  lora_alpha: 32
+  lora_dropout: 0.0
+  lora_bias: "none"
+  lora_text_encoder_r: 16
+  lora_text_encoder_alpha: 32
+  lora_text_encoder_bias: "none"
+  lora_text_encoder_dropout: 0.0
+  UNET_TARGET_MODULES:
+    - to_q
+    - to_v
+    - query
+    - value
+
+  TEXT_ENCODER_TARGET_MODULES:
+    - q_proj
+    - v_proj
