@@ -14,7 +14,6 @@
 # limitations under the License.
 import copy
 import inspect
-import os
 import warnings
 from typing import Optional
 
@@ -39,31 +38,6 @@ def infer_device():
     return torch_device
 
 
-# Add or edit model card to have `library_name: peft`
-def add_library_to_model_card(output_dir):
-    if os.path.exists(os.path.join(output_dir, "README.md")):
-        with open(os.path.join(output_dir, "README.md"), "r") as f:
-            lines = f.readlines()
-        # check if the first line is `---`
-        if len(lines) > 0 and lines[0].startswith("---"):
-            for i, line in enumerate(lines[1:]):
-                # check if line starts with `library_name`, if yes, update it
-                if line.startswith("library_name"):
-                    lines[i + 1] = "library_name: peft\n"
-                    break
-                elif line.startswith("---"):
-                    # insert `library_name: peft` before the last `---`
-                    lines.insert(i + 1, "library_name: peft\n")
-                    break
-        else:
-            lines = ["---\n", "library_name: peft\n", "---\n"] + lines
-    else:
-        lines = ["---\n", "library_name: peft\n", "---\n"]
-    # write the lines back to README.md
-    with open(os.path.join(output_dir, "README.md"), "w") as f:
-        f.writelines(lines)
-
-
 # needed for prefix-tuning of bloom model
 def bloom_model_postprocess_past_key_value(past_key_values):
     past_key_values = torch.cat(past_key_values)
@@ -78,18 +52,40 @@ def bloom_model_postprocess_past_key_value(past_key_values):
     return tuple(zip(keys, values))
 
 
-def prepare_model_for_kbit_training(model, use_gradient_checkpointing=True):
+# needed for prefix-tuning of StarCoder models
+def starcoder_model_postprocess_past_key_value(past_key_values):
+    result = []
+    for k in past_key_values:
+        k = k[:, :, 0]
+        k = k.permute([1, 2, 0, 3])
+        k = k.reshape(*k.shape[:-2], -1)
+        result.append(k)
+    return tuple(result)
+
+
+def prepare_model_for_kbit_training(model, use_gradient_checkpointing=True, gradient_checkpointing_kwargs=None):
     r"""
+    Note this method only works for `transformers` models.
+
     This method wraps the entire protocol for preparing a model before running a training. This includes:
         1- Cast the layernorm in fp32 2- making output embedding layer require grads 3- Add the upcasting of the lm
         head to fp32
 
     Args:
-        model, (`transformers.PreTrainedModel`):
+        model (`transformers.PreTrainedModel`):
             The loaded model from `transformers`
+        use_gradient_checkpointing (`bool`, *optional*, defaults to `True`):
+            If True, use gradient checkpointing to save memory at the expense of slower backward pass.
+        gradient_checkpointing_kwargs (`dict`, *optional*, defaults to `None`):
+            Keyword arguments to pass to the gradient checkpointing function, please refer to the documentation of
+            `torch.utils.checkpoint.checkpoint` for more details about the arguments that you can pass to that method.
+            Note this is only available in the latest transformers versions (> 4.34.1).
     """
     loaded_in_kbit = getattr(model, "is_loaded_in_8bit", False) or getattr(model, "is_loaded_in_4bit", False)
     is_gptq_quantized = getattr(model, "quantization_method", None) == "gptq"
+    if gradient_checkpointing_kwargs is None:
+        gradient_checkpointing_kwargs = {}
+
     for name, param in model.named_parameters():
         # freeze base model's layers
         param.requires_grad = False
@@ -101,19 +97,36 @@ def prepare_model_for_kbit_training(model, use_gradient_checkpointing=True):
                 param.data = param.data.to(torch.float32)
 
     if (loaded_in_kbit or is_gptq_quantized) and use_gradient_checkpointing:
-        # For backward compatibility
-        if hasattr(model, "enable_input_require_grads"):
-            model.enable_input_require_grads()
-        else:
+        # When having `use_reentrant=False` + gradient_checkpointing, there is no need for this hack
+        if "use_reentrant" not in gradient_checkpointing_kwargs or gradient_checkpointing_kwargs["use_reentrant"]:
+            # For backward compatibility
+            if hasattr(model, "enable_input_require_grads"):
+                model.enable_input_require_grads()
+            else:
 
-            def make_inputs_require_grad(module, input, output):
-                output.requires_grad_(True)
+                def make_inputs_require_grad(module, input, output):
+                    output.requires_grad_(True)
 
-            model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+                model.get_input_embeddings().register_forward_hook(make_inputs_require_grad)
+
+        # To support older transformers versions, check if the model supports gradient_checkpointing_kwargs
+        _supports_gc_kwargs = "gradient_checkpointing_kwargs" in list(
+            inspect.signature(model.gradient_checkpointing_enable).parameters
+        )
+
+        if not _supports_gc_kwargs and len(gradient_checkpointing_kwargs) > 0:
+            warnings.warn(
+                "gradient_checkpointing_kwargs is not supported in this version of transformers. The passed kwargs will be ignored."
+                " if you want to use that feature, please upgrade to the latest version of transformers.",
+                FutureWarning,
+            )
+
+        gc_enable_kwargs = (
+            {} if not _supports_gc_kwargs else {"gradient_checkpointing_kwargs": gradient_checkpointing_kwargs}
+        )
 
         # enable gradient checkpointing for memory efficiency
-        model.gradient_checkpointing_enable()
-
+        model.gradient_checkpointing_enable(**gc_enable_kwargs)
     return model
 
 
@@ -153,9 +166,19 @@ class ModulesToSaveWrapper(torch.nn.Module):
         super().__init__()
         self.original_module = module_to_save
         self.modules_to_save = torch.nn.ModuleDict({})
+        self._active_adapter = adapter_name
+        self._disable_adapters = False
         self.update(adapter_name)
-        self.active_adapter = adapter_name
-        self.disable_adapters = False
+
+    @property
+    def disable_adapters(self) -> bool:
+        # use a property to ensure that disable_adapters is not set directly, instead use the enable_adapters method
+        return self._disable_adapters
+
+    @property
+    def active_adapter(self) -> str:
+        # use a property to ensure that active_adapter is not set directly, instead use the set_adapter method
+        return self._active_adapter
 
     def update(self, adapter_name):
         self.modules_to_save.update(torch.nn.ModuleDict({adapter_name: copy.deepcopy(self.original_module)}))
@@ -165,6 +188,10 @@ class ModulesToSaveWrapper(torch.nn.Module):
             new_hook = self._create_new_hook(old_hook)
             remove_hook_from_module(self.modules_to_save[adapter_name])
             add_hook_to_module(self.modules_to_save[adapter_name], new_hook)
+
+        self.original_module.requires_grad_(False)
+        if adapter_name == self.active_adapter:
+            self.modules_to_save[adapter_name].requires_grad_(True)
 
     def _create_new_hook(self, old_hook):
         r"""
@@ -184,6 +211,40 @@ class ModulesToSaveWrapper(torch.nn.Module):
         if self.disable_adapters or (self.active_adapter not in self.modules_to_save):
             return self.original_module(*args, **kwargs)
         return self.modules_to_save[self.active_adapter](*args, **kwargs)
+
+    def enable_adapters(self, enabled: bool):
+        """Toggle the enabling and disabling of adapters
+
+        Takes care of setting the requires_grad flag for the adapter weights.
+
+        Args:
+            enabled (bool): True to enable adapters, False to disable adapters
+        """
+        if self._disable_adapters is not enabled:
+            # already in the desired state, do nothing
+            return
+
+        if enabled:
+            self.original_module.requires_grad_(False)
+            self.modules_to_save[self.active_adapter].requires_grad_(True)
+            self._disable_adapters = False
+        else:
+            self.original_module.requires_grad_(True)
+            self.modules_to_save.requires_grad_(False)
+            self._disable_adapters = True
+
+    def set_adapter(self, adapter_name: str):
+        """Set the active adapter
+
+        Args:
+            adapter_name (str): The name of the adapter to set as active
+        """
+        if adapter_name not in self.modules_to_save:
+            raise ValueError(f"Adapter {adapter_name} not found in {self.modules_to_save.keys()}")
+
+        self.modules_to_save[self.active_adapter].requires_grad_(False)
+        self.modules_to_save[adapter_name].requires_grad_(True)
+        self._active_adapter = adapter_name
 
 
 def _get_submodules(model, key):
@@ -207,16 +268,17 @@ def _set_trainable(model, adapter_name):
             parent, target, target_name = _get_submodules(model, key)
             if isinstance(target, ModulesToSaveWrapper):
                 target.update(adapter_name)
+                target.set_adapter(target.active_adapter)
             else:
-                for param in target.parameters():
-                    param.requires_grad = True
-                setattr(parent, target_name, ModulesToSaveWrapper(target, adapter_name))
+                new_module = ModulesToSaveWrapper(target, adapter_name)
+                new_module.set_adapter(adapter_name)
+                setattr(parent, target_name, new_module)
 
 
 def _set_adapter(model, adapter_name):
     for module in model.modules():
         if isinstance(module, ModulesToSaveWrapper):
-            module.active_adapter = adapter_name
+            module.set_adapter(adapter_name)
 
 
 def _prepare_prompt_learning_config(peft_config, model_config):
@@ -297,7 +359,12 @@ def fsdp_auto_wrap_policy(model):
 
 
 def transpose(weight, fan_in_fan_out):
-    return weight.T if fan_in_fan_out else weight
+    if not fan_in_fan_out:
+        return weight
+
+    if isinstance(weight, torch.nn.Parameter):
+        return torch.nn.Parameter(weight.T)
+    return weight.T
 
 
 def _is_valid_match(key: str, target_key: str):
@@ -391,6 +458,8 @@ TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING = {
     "falcon": ["query_key_value"],
     "btlm": ["c_proj", "c_attn"],
     "codegen": ["qkv_proj"],
+    "mistral": ["q_proj", "v_proj"],
+    "stablelm": ["q_proj", "v_proj"],
 }
 
 TRANSFORMERS_MODELS_TO_IA3_TARGET_MODULES_MAPPING = {
@@ -460,6 +529,7 @@ TRANSFORMERS_MODELS_TO_ADALORA_TARGET_MODULES_MAPPING = {
 
 TRANSFORMERS_MODELS_TO_PREFIX_TUNING_POSTPROCESS_MAPPING = {
     "bloom": bloom_model_postprocess_past_key_value,
+    "gpt_bigcode": starcoder_model_postprocess_past_key_value,
 }
 
 WEIGHTS_NAME = "adapter_model.bin"

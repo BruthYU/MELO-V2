@@ -18,11 +18,11 @@ extras = {}
 extras["quality"] = ["black ~= 22.0", "ruff>=0.0.241", "urllib3<=2.0.0"]
 extras["docs_specific"] = ["hf-doc-builder"]
 extras["dev"] = extras["quality"] + extras["docs_specific"]
-extras["test"] = extras["dev"] + ["pytest", "pytest-cov", "pytest-xdist", "parameterized", "datasets", "diffusers"]
+extras["test"] = extras["dev"] + ["pytest", "pytest-cov", "pytest-xdist", "parameterized", "datasets", "diffusers<0.21.0"]
 
 setup(
     name="peft",
-    version="0.5.0",
+    version="0.6.0",
     description="Parameter-Efficient Fine-Tuning (PEFT)",
     license_files=["LICENSE"],
     long_description=open("README.md", "r", encoding="utf-8").read(),
@@ -45,7 +45,7 @@ setup(
         "torch>=1.13.0",
         "transformers",
         "tqdm",
-        "accelerate",
+        "accelerate>=0.21.0",
         "safetensors",
     ],
     extras_require=extras,

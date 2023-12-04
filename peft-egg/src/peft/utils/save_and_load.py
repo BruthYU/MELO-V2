@@ -25,17 +25,23 @@ from .other import SAFETENSORS_WEIGHTS_NAME, WEIGHTS_NAME, infer_device
 from .peft_types import PeftType
 
 
-def get_peft_model_state_dict(model, state_dict=None, adapter_name="default"):
+def get_peft_model_state_dict(model, state_dict=None, adapter_name="default", unwrap_compiled=False):
     """
     Get the state dict of the Peft model.
 
     Args:
         model ([`PeftModel`]): The Peft model. When using torch.nn.DistributedDataParallel, DeepSpeed or FSDP,
-        the model should be the underlying model/unwrapped model (i.e. model.module).
+            the model should be the underlying model/unwrapped model (i.e. model.module).
         state_dict (`dict`, *optional*, defaults to `None`):
-            The state dict of the model. If not provided, the state dict of the model
-        will be used.
+            The state dict of the model. If not provided, the state dict of the passed model will be used.
+        adapter_name (`str`, *optional*, defaults to `"default"`):
+            The name of the adapter whose state dict should be returned.
+        unwrap_compiled (`bool`, *optional*, defaults to `False`):
+            Whether to unwrap the model if torch.compile was used.
     """
+    if unwrap_compiled:
+        model = getattr(model, "_orig_mod", model)
+
     config = model.peft_config[adapter_name]
     if state_dict is None:
         state_dict = model.state_dict()
@@ -66,14 +72,25 @@ def get_peft_model_state_dict(model, state_dict=None, adapter_name="default"):
                 config.rank_pattern = rank_pattern
                 to_return = model.resize_state_dict_by_rank_pattern(rank_pattern, to_return, adapter_name)
 
+    elif config.peft_type == PeftType.LOHA:
+        to_return = {k: state_dict[k] for k in state_dict if "hada_" in k}
+
+    elif config.peft_type == PeftType.LOKR:
+        to_return = {k: state_dict[k] for k in state_dict if "lokr_" in k}
+
     elif config.peft_type == PeftType.ADAPTION_PROMPT:
         to_return = {k: state_dict[k] for k in state_dict if k.split(".")[-1].startswith("adaption_")}
     elif config.is_prompt_learning:
         to_return = {}
-        if config.inference_mode:
+        if config.peft_type == PeftType.MULTITASK_PROMPT_TUNING:
+            to_return["prefix_task_cols"] = model.prompt_encoder[adapter_name].prefix_task_cols
+            to_return["prefix_task_rows"] = model.prompt_encoder[adapter_name].prefix_task_rows
             prompt_embeddings = model.prompt_encoder[adapter_name].embedding.weight
         else:
-            prompt_embeddings = model.get_prompt_embedding_to_save(adapter_name)
+            if config.inference_mode:
+                prompt_embeddings = model.prompt_encoder[adapter_name].embedding.weight
+            else:
+                prompt_embeddings = model.get_prompt_embedding_to_save(adapter_name)
         to_return["prompt_embeddings"] = prompt_embeddings
     elif config.peft_type == PeftType.IA3:
         to_return = {k: state_dict[k] for k in state_dict if "ia3_" in k}
@@ -109,9 +126,15 @@ def set_peft_model_state_dict(model, peft_model_state_dict, adapter_name="defaul
     else:
         state_dict = peft_model_state_dict
 
-    if config.peft_type in (PeftType.LORA, PeftType.ADALORA, PeftType.IA3):
+    if config.peft_type in (PeftType.LORA, PeftType.LOHA, PeftType.LOKR, PeftType.ADALORA, PeftType.IA3):
         peft_model_state_dict = {}
-        parameter_prefix = "ia3_" if config.peft_type == PeftType.IA3 else "lora_"
+        parameter_prefix = {
+            PeftType.IA3: "ia3_",
+            PeftType.LORA: "lora_",
+            PeftType.ADALORA: "lora_",
+            PeftType.LOHA: "hada_",
+            PeftType.LOKR: "lokr_",
+        }[config.peft_type]
         for k, v in state_dict.items():
             if parameter_prefix in k:
                 suffix = k.split(parameter_prefix)[1]
@@ -137,6 +160,9 @@ def set_peft_model_state_dict(model, peft_model_state_dict, adapter_name="defaul
         model.prompt_encoder[adapter_name].embedding.load_state_dict(
             {"weight": peft_model_state_dict["prompt_embeddings"]}, strict=True
         )
+
+    if config.peft_type == PeftType.MULTITASK_PROMPT_TUNING:
+        model.prompt_encoder[adapter_name].load_state_dict(peft_model_state_dict, strict=False)
     return load_result
 
 
