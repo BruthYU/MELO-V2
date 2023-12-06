@@ -9,8 +9,8 @@ import torch.nn.functional as F
 from peft.tuners.tuners_utils import BaseTunerLayer
 from peft.utils.other import transpose
 
-LORA_BLOCK_MAPPING = []
-NO_LORA = -100
+# LORA_BLOCK_MAPPING = []
+# NO_LORA = -100
 
 class Dynamic(nn.Module):
     def __init__(
@@ -25,6 +25,7 @@ class Dynamic(nn.Module):
         self.num_rank_per_block = num_rank_per_block
         self.maximum_block = maximum_rank // num_rank_per_block
         self.current_block = 0
+        self.LORA_BLOCK_MAPPING = []
         self.NO_LORA = -100
     def get_block_dimension(self):
         return self.maximum_block
@@ -48,13 +49,14 @@ class Dynamic(nn.Module):
         self.maximum_block = maximum_rank // num_rank_per_block
         self.current_block = 0
 
+
+
     def forward(self, inputs):
-        global LORA_BLOCK_MAPPING
-        global NO_LORA
+
         block_list = []
-        assert len(LORA_BLOCK_MAPPING) != 0, "No element in LORA_BLOCK_MAPPING"
-        for block_id in LORA_BLOCK_MAPPING:
-            if block_id == NO_LORA:
+        assert len(self.LORA_BLOCK_MAPPING) != 0, "No element in LORA_BLOCK_MAPPING"
+        for block_id in self.LORA_BLOCK_MAPPING:
+            if block_id == self.NO_LORA:
                 zero_tensor = torch.zeros((self.num_rank_per_block,inputs.shape[1]),device=inputs.device)
                 block_list.append(zero_tensor)
             else:
@@ -157,6 +159,9 @@ class LoraLayer:
             self.reset_lora_parameters(adapter_name)
         self.to(self.weight.device)
 
+    def update_dynamic_mapping(self, lora_block_mapping):
+        self.nd_lora_A.LORA_BLOCK_MAPPING = lora_block_mapping
+        self.nd_lora_B.LORA_BLOCK_MAPPING = lora_block_mapping
     def reset_lora_parameters(self, adapter_name):
         if adapter_name in self.lora_A.keys():
             # initialize 'A' the same way as the default for nn.Linear and B to zero
@@ -250,6 +255,8 @@ class Linear(nn.Linear, LoraLayer):
 
         return result
 
+
+# TODO MELO
 class Embedding(nn.Embedding, LoraLayer):
     # LoRA implemented in a Embedding layer
     def __init__(
@@ -331,6 +338,8 @@ class Embedding(nn.Embedding, LoraLayer):
             return nn.Embedding.forward(self, x)
 
 
+
+# TODO MELO
 class Conv2d(nn.Conv2d, LoraLayer):
     # Lora implemented in a conv2d layer
     def __init__(
