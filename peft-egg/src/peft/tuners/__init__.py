@@ -17,6 +17,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .melo import MeloConfig, MeloModel
 from .adaption_prompt import AdaptionPromptConfig, AdaptionPromptModel
 from .lora import LoraConfig, LoraModel
 from .loha import LoHaConfig, LoHaModel
@@ -33,4 +34,5 @@ TUNERS_MAPPING = {
     "LORA": LoraModel,
     "IA3": IA3Model,
     "ADALORA": AdaLoraModel,
+    "MELO": MeloModel
 }

@@ -45,6 +45,8 @@ from .peft_model import (
     PeftModelForFeatureExtraction,
 )
 from .tuners import (
+    MeloConfig,
+    MeloModel,
     AdaptionPromptConfig,
     AdaptionPromptModel,
     LoraConfig,

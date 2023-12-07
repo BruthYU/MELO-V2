@@ -91,7 +91,7 @@ class MeloModel(torch.nn.Module):
             "lora_dropout": lora_config.lora_dropout,
             "fan_in_fan_out": lora_config.fan_in_fan_out,
             "init_lora_weights": lora_config.init_lora_weights,
-            "num_rank_per_block":lora_config.grace_config['num_rank_per_block']
+            "num_rank_per_block":lora_config.model.num_rank_per_block
         }
         loaded_in_4bit = getattr(self.model, "is_loaded_in_4bit", False)
         loaded_in_8bit = getattr(self.model, "is_loaded_in_8bit", False)
@@ -196,7 +196,7 @@ class MeloModel(torch.nn.Module):
                     lora_config.lora_alpha,
                     lora_config.lora_dropout,
                     lora_config.init_lora_weights,
-                    lora_config.grace_config['num_rank_per_block']
+                    lora_config.model.num_rank_per_block
                 )
             else:
                 new_module = self._create_new_module(lora_config, adapter_name, target)
@@ -280,19 +280,10 @@ class MeloModel(torch.nn.Module):
                 raise ValueError("Please specify `target_modules` in `peft_config`")
             peft_config.target_modules = TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING[model_config["model_type"]]
         return peft_config
-    @staticmethod
-    def _prepare_melo_config(peft_config, model_config):
-        if peft_config.grace_layer is None:
-                raise ValueError("Please specify `grace_layer` in `peft_config`")
-        return peft_config
 
 
-    @staticmethod
-    def _prepare_grace_config(peft_config, model_config):
-        if peft_config.grace_layer is None or peft_config.grace_config is None:
-            if model_config["model_type"] not in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING:
-                raise ValueError("Please specify `grace_layer` and `grace_config` in `peft_config`")
-        return peft_config
+
+
 
     def merge_and_unload(self):
         r"""
