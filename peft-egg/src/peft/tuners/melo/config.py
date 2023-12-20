@@ -29,6 +29,7 @@ class MeloConfig(PeftConfig):
     """
 
     r: int = field(default=8, metadata={"help": "Lora attention dimension"})
+    num_rank_per_block: int = field(default=8, metadata={"help": "Lora block rank"})
 
 
     target_modules: Optional[Union[List[str], str]] = field(

@@ -46,6 +46,7 @@ from .tuners import (
     PrefixEncoder,
     PromptEmbedding,
     PromptEncoder,
+    MeloModel
 )
 from .utils import (
     SAFETENSORS_WEIGHTS_NAME,
@@ -75,6 +76,7 @@ PEFT_TYPE_TO_MODEL_MAPPING = {
     PeftType.ADALORA: AdaLoraModel,
     PeftType.ADAPTION_PROMPT: AdaptionPromptModel,
     PeftType.IA3: IA3Model,
+    PeftType.MELO: MeloModel
 }
 
 

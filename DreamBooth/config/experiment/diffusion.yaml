@@ -61,5 +61,6 @@ name: null
 output_dir: text-inversion-model
 num_dataloader_workers: 1
 no_trace_malloc: false
+check_dir: null
 
 

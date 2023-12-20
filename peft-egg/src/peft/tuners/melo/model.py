@@ -32,7 +32,7 @@ class MeloModel(torch.nn.Module):
     def add_adapter(self, adapter_name, config=None):
         if config is not None:
             model_config = self.model.config.to_dict() if hasattr(self.model.config, "to_dict") else self.model.config
-            config = self._prepare_lora_config(config, model_config)
+            config = self._prepare_melo_config(config, model_config)
             self.peft_config[adapter_name] = config
         self._find_and_replace(adapter_name)
         if len(self.peft_config) > 1 and self.peft_config[adapter_name].bias != "none":
@@ -54,13 +54,13 @@ class MeloModel(torch.nn.Module):
                 "You can install it with `pip install bitsandbytes`."
             )
 
-    def _check_target_module_exists(self, lora_config, key):
-        if isinstance(lora_config.target_modules, str):
-            target_module_found = re.fullmatch(lora_config.target_modules, key)
+    def _check_target_module_exists(self, melo_config, key):
+        if isinstance(melo_config.target_modules, str):
+            target_module_found = re.fullmatch(melo_config.target_modules, key)
         else:
-            target_module_found = any(key.endswith(target_key) for target_key in lora_config.target_modules)
-            is_using_layer_indexes = getattr(lora_config, "layers_to_transform", None) is not None
-            layer_indexing_pattern = getattr(lora_config, "layers_pattern", None)
+            target_module_found = any(key.endswith(target_key) for target_key in melo_config.target_modules)
+            is_using_layer_indexes = getattr(melo_config, "layers_to_transform", None) is not None
+            layer_indexing_pattern = getattr(melo_config, "layers_pattern", None)
 
             if is_using_layer_indexes and target_module_found:
                 layers_pattern = COMMON_LAYERS_PATTERN if layer_indexing_pattern is None else layer_indexing_pattern
@@ -70,10 +70,10 @@ class MeloModel(torch.nn.Module):
                     layer_index = re.match(f".*.{pattern}\.(\d+)\.*", key)
                     if layer_index is not None:
                         layer_index = int(layer_index.group(1))
-                        if isinstance(lora_config.layers_to_transform, int):
-                            target_module_found = layer_index == lora_config.layers_to_transform
+                        if isinstance(melo_config.layers_to_transform, int):
+                            target_module_found = layer_index == melo_config.layers_to_transform
                         else:
-                            target_module_found = layer_index in lora_config.layers_to_transform
+                            target_module_found = layer_index in melo_config.layers_to_transform
 
                         break
                     else:
@@ -83,15 +83,15 @@ class MeloModel(torch.nn.Module):
 
 
 
-    def _create_new_module(self, lora_config, adapter_name, target):
+    def _create_new_module(self, melo_config, adapter_name, target):
         bias = hasattr(target, "bias") and target.bias is not None
         kwargs = {
-            "r": lora_config.r,
-            "lora_alpha": lora_config.lora_alpha,
-            "lora_dropout": lora_config.lora_dropout,
-            "fan_in_fan_out": lora_config.fan_in_fan_out,
-            "init_lora_weights": lora_config.init_lora_weights,
-            "num_rank_per_block":lora_config.model.num_rank_per_block
+            "r": melo_config.r,
+            "lora_alpha": melo_config.lora_alpha,
+            "lora_dropout": melo_config.lora_dropout,
+            "fan_in_fan_out": melo_config.fan_in_fan_out,
+            "init_lora_weights": melo_config.init_lora_weights,
+            "num_rank_per_block":melo_config.num_rank_per_block
         }
         loaded_in_4bit = getattr(self.model, "is_loaded_in_4bit", False)
         loaded_in_8bit = getattr(self.model, "is_loaded_in_8bit", False)
@@ -138,7 +138,7 @@ class MeloModel(torch.nn.Module):
                         "fan_in_fan_out is set to True but the target module is `torch.nn.Linear`. "
                         "Setting fan_in_fan_out to False."
                     )
-                    kwargs["fan_in_fan_out"] = lora_config.fan_in_fan_out = False
+                    kwargs["fan_in_fan_out"] = melo_config.fan_in_fan_out = False
             elif isinstance(target, Conv1D):
                 in_features, out_features = (
                     target.weight.ds_shape if hasattr(target.weight, "ds_shape") else target.weight.shape
@@ -148,7 +148,7 @@ class MeloModel(torch.nn.Module):
                         "fan_in_fan_out is set to False but the target module is `Conv1D`. "
                         "Setting fan_in_fan_out to True."
                     )
-                    kwargs["fan_in_fan_out"] = lora_config.fan_in_fan_out = True
+                    kwargs["fan_in_fan_out"] = melo_config.fan_in_fan_out = True
             else:
                 raise ValueError(
                     f"Target module {target} is not supported. "
@@ -168,14 +168,14 @@ class MeloModel(torch.nn.Module):
 
 
     def _find_and_replace(self, adapter_name):
-        lora_config = self.peft_config[adapter_name]
+        melo_config = self.peft_config[adapter_name]
 
         self._check_quantization_dependency()
         is_target_modules_in_base_model = False
         key_list = [key for key, _ in self.model.named_modules()]
 
         for key in key_list:
-            if not self._check_target_module_exists(lora_config, key):
+            if not self._check_target_module_exists(melo_config, key):
                 continue
 
             is_target_modules_in_base_model = True
@@ -184,27 +184,27 @@ class MeloModel(torch.nn.Module):
             if isinstance(target, LoraLayer) and isinstance(target, torch.nn.Conv2d):
                 target.update_layer_conv2d(
                     adapter_name,
-                    lora_config.r,
-                    lora_config.lora_alpha,
-                    lora_config.lora_dropout,
-                    lora_config.init_lora_weights,
+                    melo_config.r,
+                    melo_config.lora_alpha,
+                    melo_config.lora_dropout,
+                    melo_config.init_lora_weights,
                 )
             elif isinstance(target, LoraLayer):
                 target.update_layer(
                     adapter_name,
-                    lora_config.r,
-                    lora_config.lora_alpha,
-                    lora_config.lora_dropout,
-                    lora_config.init_lora_weights,
-                    lora_config.model.num_rank_per_block
+                    melo_config.r,
+                    melo_config.lora_alpha,
+                    melo_config.lora_dropout,
+                    melo_config.init_lora_weights,
+                    melo_config.num_rank_per_block
                 )
             else:
-                new_module = self._create_new_module(lora_config, adapter_name, target)
+                new_module = self._create_new_module(melo_config, adapter_name, target)
                 self._replace_module(parent, target_name, new_module, target)
 
         if not is_target_modules_in_base_model:
             raise ValueError(
-                f"Target modules {lora_config.target_modules} not found in the base model. "
+                f"Target modules {melo_config.target_modules} not found in the base model. "
                 f"Please check the target modules and try again."
             )
 
@@ -274,7 +274,7 @@ class MeloModel(torch.nn.Module):
                 module.unmerge()
 
     @staticmethod
-    def _prepare_lora_config(peft_config, model_config):
+    def _prepare_melo_config(peft_config, model_config):
         if peft_config.target_modules is None:
             if model_config["model_type"] not in TRANSFORMERS_MODELS_TO_LORA_TARGET_MODULES_MAPPING:
                 raise ValueError("Please specify `target_modules` in `peft_config`")

@@ -36,20 +36,24 @@ class MELO_DIFF(torch.nn.Module):
 
         '''Melo Config
         '''
-        r_num = config.model.num_block * config.model.num_rank_per_block
+        r_num = config.model.num_block * config.model.num_rank_per_block.unet
         self.unet_melo_config = MeloConfig(
-            r= r_num,
+            r = r_num,
             lora_alpha= r_num * 2,
             target_modules= list(config.model.UNET_TARGET_MODULES),
             lora_dropout= config.model.lora_dropout,
             fan_in_fan_out= config.model.fan_in_fan_out,
+            num_rank_per_block = config.model.num_rank_per_block.unet
         )
+
+        r_num = config.model.num_block * config.model.num_rank_per_block.text_encoder
         self.text_encoder_melo_config = MeloConfig(
             r= r_num,
             lora_alpha= r_num * 2,
             target_modules= list(config.model.TEXT_ENCODER_TARGET_MODULES),
             lora_dropout= config.model.lora_text_encoder_dropout,
             fan_in_fan_out= config.model.fan_in_fan_out,
+            num_rank_per_block=config.model.num_rank_per_block.text_encoder
         )
         self.log_dict = {}
 
@@ -59,7 +63,7 @@ class MELO_DIFF(torch.nn.Module):
         # self.model = model
 
         if not config.check_dir:
-            self.text_encoder = get_peft_model(unet, self.text_encoder_melo_config)
+            self.text_encoder = get_peft_model(text_encoder, self.text_encoder_melo_config)
             self.unet = get_peft_model(unet, self.unet_melo_config)
         else:
             save_path = os.path.join(config.base_dir, "checkpoint", config.check_dir)
@@ -68,11 +72,10 @@ class MELO_DIFF(torch.nn.Module):
         self.unet_lora_list = self.named_lora_modules(self.unet)
         self.text_encoder_lora_list = self.named_lora_modules(self.text_encoder)
 
-
-        '''Parameters to be optimized
         '''
-        self.opt_params = self.optim_parameters()
-        pass
+        Only LoRA modules are marked as trainable (mark_only_lora_as_trainable)
+        '''
+
 
     def named_lora_modules(self, model):
         module_list = [key for key, _ in model.named_modules()]
