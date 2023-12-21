@@ -1,2 +1,3 @@
-alg_name: melo_diff
+# @package _global_
+alg: melo_diff
 lr: 2e-3

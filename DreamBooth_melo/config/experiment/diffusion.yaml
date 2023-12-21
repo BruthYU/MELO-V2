@@ -6,10 +6,10 @@ tokenizer_name: null
 instance_data_dir: "dog/datasets--diffusers--dog-example/blobs"
 class_data_dir: "class_data"
 instance_prompt: "a photo of sks dog"
-class_prompt: "a photo of dog"
+class_prompt: "a photo of "
 with_prior_preservation: true
 prior_loss_weight: 0.5
-num_class_images: 100
+num_class_images: 40
 seed: null
 resolution: 512
 center_crop: false

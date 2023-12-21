@@ -12,6 +12,7 @@ import torch.nn.functional as F
 import torch.utils.checkpoint
 import transformers
 import warnings
+import json
 from accelerate import Accelerator
 from accelerate.logging import get_logger
 from accelerate.utils import ProjectConfiguration, set_seed
@@ -45,7 +46,7 @@ os.environ['https_proxy'] = '127.0.0.1:7890'
 LOG = logging.getLogger(__name__)
 
 identifier = ["Tom's", "sks", "Jackie's", "Cunningham‘s", "Lang's"]
-subject_name = ["rc_car", "shiny_sneaker", "cat", "vase", "wolf_plushie"]
+subject_name = ["rc_car", "shiny_sneaker", "cat", "vase", "pink_sunglasses" ]
 
 
 def check_config(config):
@@ -106,6 +107,9 @@ def run(config):
     base_dir = hydra.utils.get_original_cwd()
     with open_dict(config):
         config.base_dir = base_dir
+
+    with open(os.path.join(base_dir, "data","data.json"), 'r') as f:
+        data_info = json.load(f)
         
     accelerator = Accelerator(
         gradient_accumulation_steps=config.gradient_accumulation_steps,
@@ -132,53 +136,54 @@ def run(config):
 
     pretrained_cache_dir = Path(hydra.utils.get_original_cwd(), config.pretrained_cache_dir)
     # Generate class images if prior preservation is enabled.
-    if config.with_prior_preservation:
-        class_images_dir = Path(config.base_dir, config.class_data_dir)
+    for x in subject_name:
+        assert x in data_info.keys(), f"No instance images of {x}"
+        if data_info[x]["with_prior"]:
+            class_images_dir = Path(config.base_dir, "data/class_datas", data_info[x]["class_name"])
+            if not class_images_dir.exists():
+                class_images_dir.mkdir(parents=True)
+            # if not pretrained_cache_dir.exists():
+            #     pretrained_cache_dir.mkdir(parents=True)
+            cur_class_images = len(list(class_images_dir.iterdir()))
 
-        if not class_images_dir.exists():
-            class_images_dir.mkdir(parents=True)
-        # if not pretrained_cache_dir.exists():
-        #     pretrained_cache_dir.mkdir(parents=True)
-        cur_class_images = len(list(class_images_dir.iterdir()))
+            if cur_class_images < config.num_class_images:
+                torch_dtype = torch.float16 if accelerator.device.type == "cuda" else torch.float32
+                if config.prior_generation_precision == "fp32":
+                    torch_dtype = torch.float32
+                elif config.prior_generation_precision == "fp16":
+                    torch_dtype = torch.float16
+                elif config.prior_generation_precision == "bf16":
+                    torch_dtype = torch.bfloat16
+                pipeline = DiffusionPipeline.from_pretrained(
+                    config.pretrained_model_name_or_path,
+                    torch_dtype=torch_dtype,
+                    safety_checker=None,
+                    revision=config.revision,
+                )
+                pipeline.set_progress_bar_config(disable=True)
 
-        if cur_class_images < config.num_class_images:
-            torch_dtype = torch.float16 if accelerator.device.type == "cuda" else torch.float32
-            if config.prior_generation_precision == "fp32":
-                torch_dtype = torch.float32
-            elif config.prior_generation_precision == "fp16":
-                torch_dtype = torch.float16
-            elif config.prior_generation_precision == "bf16":
-                torch_dtype = torch.bfloat16
-            pipeline = DiffusionPipeline.from_pretrained(
-                config.pretrained_model_name_or_path,
-                torch_dtype=torch_dtype,
-                safety_checker=None,
-                revision=config.revision,
-            )
-            pipeline.set_progress_bar_config(disable=True)
+                num_new_images = config.num_class_images - cur_class_images
+                LOG.info(f"Number of class images to sample: {num_new_images}.")
 
-            num_new_images = config.num_class_images - cur_class_images
-            LOG.info(f"Number of class images to sample: {num_new_images}.")
+                sample_dataset = PromptDataset(config.class_prompt + data_info[x]["class_name"], num_new_images)
+                sample_dataloader = torch.utils.data.DataLoader(sample_dataset, batch_size=config.sample_batch_size)
 
-            sample_dataset = PromptDataset(config.class_prompt, num_new_images)
-            sample_dataloader = torch.utils.data.DataLoader(sample_dataset, batch_size=config.sample_batch_size)
+                sample_dataloader = accelerator.prepare(sample_dataloader)
+                pipeline.to(accelerator.device)
 
-            sample_dataloader = accelerator.prepare(sample_dataloader)
-            pipeline.to(accelerator.device)
+                for example in tqdm(
+                    sample_dataloader, desc="Generating class images", disable=not accelerator.is_local_main_process
+                ):
+                    images = pipeline(example["prompt"]).images
 
-            for example in tqdm(
-                sample_dataloader, desc="Generating class images", disable=not accelerator.is_local_main_process
-            ):
-                images = pipeline(example["prompt"]).images
+                    for i, image in enumerate(images):
+                        hash_image = hashlib.sha1(image.tobytes()).hexdigest()
+                        image_filename = class_images_dir / f"{example['index'][i] + cur_class_images}-{hash_image}.jpg"
+                        image.save(image_filename)
 
-                for i, image in enumerate(images):
-                    hash_image = hashlib.sha1(image.tobytes()).hexdigest()
-                    image_filename = class_images_dir / f"{example['index'][i] + cur_class_images}-{hash_image}.jpg"
-                    image.save(image_filename)
-
-            del pipeline
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
+                del pipeline
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
 
     '''
     Load Model
