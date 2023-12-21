@@ -108,7 +108,7 @@ def run(config):
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         mixed_precision=config.mixed_precision
     )
-    
+
     # Gradient Accumulation is not supported for multi_gpu setting
     if config.train_text_encoder and config.gradient_accumulation_steps > 1 and accelerator.num_processes > 1:
         raise ValueError(
@@ -208,7 +208,7 @@ def run(config):
 
     alg_module = importlib.import_module(f'algs.{config.alg}')
     AlgClass = getattr(alg_module, config.alg.upper())
-    alg = AlgClass(tokenizer, noise_scheduler, vae, unet, text_encoder, config)
+    alg = AlgClass(accelerator, tokenizer, noise_scheduler, vae, unet, text_encoder, config)
 
 
     pass

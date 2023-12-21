@@ -5,7 +5,7 @@ import copy
 import transformers
 import logging
 import os
-
+import itertools
 from torch.nn import Parameter
 
 from utils import *
@@ -21,9 +21,10 @@ from peft.tuners.melo import MeloConfig, LoraLayer
 LOG = logging.getLogger(__name__)
 
 class MELO_DIFF(torch.nn.Module):
-    def __init__(self, tokenizer, scheduler, vae, unet, text_encoder, config):
+    def __init__(self, accelerator, tokenizer, scheduler, vae, unet, text_encoder, config):
         super(MELO_DIFF, self).__init__()
         self.config = config
+        self.accelerator = accelerator
 
         '''Get Basic Models
         '''
@@ -84,3 +85,45 @@ class MELO_DIFF(torch.nn.Module):
             if isinstance(model.get_submodule(key), LoraLayer):
                 lora_list.append(key)
         return lora_list
+
+    def disable_melo(self):
+        self.model.base_model.disable_adapter_layers()
+        self.model.base_model.disable_grace_layer()
+
+    def enable_melo(self):
+        self.model.base_model.enable_adapter_layers()
+        self.model.base_model.enable_grace_layer()
+        
+    def train_prepare(self):
+        # Enable TF32 for faster training on Ampere GPUs,
+        # cf https://pytorch.org/docs/stable/notes/cuda.html#tensorfloat-32-tf32-on-ampere-devices
+        if self.config.allow_tf32:
+            torch.backends.cuda.matmul.allow_tf32 = True
+
+        self.params_to_optimize = (
+            itertools.chain(self.unet.parameters(),
+                            self.text_encoder.parameters()) if self.config.train_text_encoder else self.unet.parameters()
+        )
+
+        weight_dtype = torch.float32
+        if self.accelerator.mixed_precision == "fp16":
+            weight_dtype = torch.float16
+        elif self.accelerator.mixed_precision == "bf16":
+            weight_dtype = torch.bfloat16
+
+        if self.vae is not None:
+            self.vae.to(self.accelerator.device, dtype=weight_dtype)
+
+        if not self.config.train_text_encoder and self.text_encoder is not None:
+            self.text_encoder.to(self.accelerator.device, dtype=weight_dtype)
+
+
+
+    def edit(self):
+        pass
+
+
+
+        
+
+
