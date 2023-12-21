@@ -44,6 +44,10 @@ os.environ['http_proxy'] = '127.0.0.1:7890'
 os.environ['https_proxy'] = '127.0.0.1:7890'
 LOG = logging.getLogger(__name__)
 
+identifier = ["Tom's", "sks", "Jackie's", "Cunningham‘s", "Lang's"]
+subject_name = ["rc_car", "shiny_sneaker", "cat", "vase", "wolf_plushie"]
+
+
 def check_config(config):
     base_dir = hydra.utils.get_original_cwd()
     config.instance_data_dir = os.path.join(base_dir, config.instance_data_dir)
@@ -90,7 +94,6 @@ def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: st
 @hydra.main(config_path='config', config_name='config')
 def run(config):
     check_config(config)
-    
     diff_config_keys = ['class_prompt', 'with_prior_preservation', 'prior_loss_weight', 'learning_rate']
     melo_config_keys = ['use_lora','UNET_TARGET_MODULES', 'TEXT_ENCODER_TARGET_MODULES']
     DIFF_CONFIG = dict(config)

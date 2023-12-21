@@ -1,6 +1,6 @@
 fan_in_fan_out: false
 use_lora: true
-num_block: 10
+num_block: 5
 num_edit_per_block: 1
 
 num_rank_per_block:
