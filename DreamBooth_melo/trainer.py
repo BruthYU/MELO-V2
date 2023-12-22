@@ -35,8 +35,8 @@ class dream_trainer:
 
     def run_edit(self):
         self.alg.enable_melo()
-        for x in self.train_dataloader_list:
-            self.alg.edit(x)
+        for train_dataset, train_dataloader in zip(self.train_dataset_list, self.train_dataloader_list):
+            self.alg.edit(train_dataset, train_dataloader)
 
     def prepare_dataset(self):
         # Generate class images if prior preservation is enabled.
@@ -89,7 +89,7 @@ class dream_trainer:
                     del pipeline
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
-
+        self.train_dataset_list = []
         self.train_dataloader_list = []
         for sub, id in zip(self.subject_list, self.identifier_list):
             class_images_dir = Path(self.config.base_dir, "data/class_datas", self.data_info[sub]["class_name"])
@@ -116,6 +116,7 @@ class dream_trainer:
                 collate_fn=lambda examples: collate_fn(examples, self.config.with_prior_preservation),
                 num_workers=self.config.dataloader_num_workers,
             )
+            self.train_dataset_list.append(train_dataset)
             self.train_dataloader_list.append(train_dataloader)
 
 
