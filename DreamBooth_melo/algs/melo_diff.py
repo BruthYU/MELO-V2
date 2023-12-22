@@ -21,14 +21,13 @@ from peft.tuners.melo import MeloConfig, LoraLayer
 LOG = logging.getLogger(__name__)
 
 class MELO_DIFF(torch.nn.Module):
-    def __init__(self, accelerator, tokenizer, scheduler, vae, unet, text_encoder, config):
+    def __init__(self, accelerator, scheduler, vae, unet, text_encoder, config):
         super(MELO_DIFF, self).__init__()
         self.config = config
         self.accelerator = accelerator
 
         '''Get Basic Models
         '''
-        self.tokenizer = tokenizer
         self.scheduler = scheduler
         self.vae = vae
         self.unet = unet
@@ -119,7 +118,7 @@ class MELO_DIFF(torch.nn.Module):
 
 
 
-    def edit(self):
+    def edit(self, train_dataloader):
         pass
 
 

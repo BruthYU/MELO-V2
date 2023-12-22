@@ -1,12 +1,13 @@
 # @package _global_
+task: diffusion
 pretrained_model_name_or_path: "CompVis/stable-diffusion-v1-4"
 pretrained_cache_dir: "pretrained_stable_diffusion"
 revision: null
 tokenizer_name: null
 instance_data_dir: "dog/datasets--diffusers--dog-example/blobs"
 class_data_dir: "class_data"
-instance_prompt: "a photo of sks dog"
-class_prompt: "a photo of "
+instance_prompt: "a photo of"
+class_prompt: "a photo of"
 with_prior_preservation: true
 prior_loss_weight: 0.5
 num_class_images: 40
