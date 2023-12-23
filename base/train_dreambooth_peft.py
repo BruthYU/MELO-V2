@@ -622,7 +622,7 @@ def run(config):
                 lr_scheduler.step()
                 optimizer.zero_grad(set_to_none=config.args.set_grads_to_none)
 
-            # Checks if the accelerator has performed an optimization step behind the scenes
+            # Checsks if the accelerator has performed an optimization step behind the scene
             if accelerator.sync_gradients:
                 progress_bar.update(1)
                 global_step += 1

@@ -142,7 +142,7 @@ def run(config):
     '''
     alg_module = importlib.import_module(f'algs.{config.alg}')
     AlgClass = getattr(alg_module, config.alg.upper())
-    alg = AlgClass(accelerator, noise_scheduler, vae, unet, text_encoder, config)
+    alg = AlgClass(accelerator, tokenizer, noise_scheduler, vae, unet, text_encoder, config)
 
     '''
     Trainer
