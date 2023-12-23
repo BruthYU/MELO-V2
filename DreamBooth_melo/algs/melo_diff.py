@@ -193,12 +193,13 @@ class MELO_DIFF(torch.nn.Module):
         return lora_list
 
     def disable_melo(self):
-        self.model.base_model.disable_adapter_layers()
-        self.model.base_model.disable_grace_layer()
+        self.unet.base_model.disable_adapter_layers()
+        self.text_encoder.base_model.disable_adapter_layers()
 
     def enable_melo(self):
-        self.model.base_model.enable_adapter_layers()
-        self.model.base_model.enable_grace_layer()
+        self.unet.base_model.enable_adapter_layers()
+        self.text_encoder.base_model.enable_adapter_layers()
+
         
     def train_prepare(self):
         # Enable TF32 for faster training on Ampere GPUs,
@@ -234,9 +235,14 @@ class MELO_DIFF(torch.nn.Module):
 
         if not self.config.train_text_encoder and self.text_encoder is not None:
             self.text_encoder.to(self.accelerator.device, dtype=weight_dtype)
+
+        if self.vae is not None:
+            self.vae.requires_grad_(False)
         
-        self.scheduler,self.vae, self.unet,self.text_encoder = \
-            self.accelerator.prepare(self.scheduler,self.vae, self.unet,self.text_encoder)
+        self.noise_scheduler,self.vae, self.unet,self.text_encoder = \
+            self.accelerator.prepare(self.noise_scheduler,self.vae, self.unet,self.text_encoder)
+
+        self.weight_dtype = weight_dtype
         
 
 
@@ -267,7 +273,7 @@ class MELO_DIFF(torch.nn.Module):
             num_cycles=self.config.lr_num_cycles,
             power=self.config.lr_power,
         )
-        optimizer, lr_scheduler = self.accelerator.prepare(optimizer, lr_scheduler)
+        optimizer, lr_scheduler, train_dataloader = self.accelerator.prepare(optimizer, lr_scheduler, train_dataloader)
         # We need to recalculate our total training steps as the size of the training dataloader may have changed.
         num_update_steps_per_epoch = math.ceil(len(train_dataloader) / self.config.gradient_accumulation_steps)
         

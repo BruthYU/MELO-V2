@@ -64,7 +64,7 @@ class dream_trainer:
                         safety_checker=None,
                         revision=self.config.revision,
                     )
-                    pipeline.set_progress_bar_self.config(disable=True)
+                    pipeline.set_progress_bar_config(disable=True)
 
                     num_new_images = self.config.num_class_images - cur_class_images
                     LOG.info(f"Number of class images to sample: {num_new_images}.")
