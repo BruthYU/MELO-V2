@@ -42,8 +42,7 @@ def log_validation(
     accelerator,
     weight_dtype,
     global_step,
-    prompt_embeds,
-    negative_prompt_embeds,
+    instance_prompt
 ):
 
     LOG.info(
@@ -95,13 +94,10 @@ def log_validation(
     pipeline = pipeline.to(accelerator.device)
     pipeline.set_progress_bar_config(disable=True)
 
-    if args.pre_compute_text_embeddings:
-        pipeline_args = {
-            "prompt_embeds": prompt_embeds,
-            "negative_prompt_embeds": negative_prompt_embeds,
-        }
-    else:
-        pipeline_args = {"prompt": args.validation_prompt}
+
+    # Validation Prompt
+    instance_prompt = instance_prompt.replace(args.instance_prompt, "")
+    pipeline_args = {"prompt": args.validation_prompt.format(instance_prompt)}
 
     # run inference
     generator = None if args.seed is None else torch.Generator(device=accelerator.device).manual_seed(args.seed)
@@ -416,6 +412,8 @@ class MELO_DIFF(torch.nn.Module):
                         optimizer.zero_grad(set_to_none=self.config.set_grads_to_none)
 
                     if self.accelerator.sync_gradients:
+                        progress_bar.update(1)
+                        global_step += 1
                         if self.config.validation_prompt is not None and global_step % self.config.validation_steps == 0:
                             log_validation(
                                 self.text_encoder,
@@ -426,8 +424,7 @@ class MELO_DIFF(torch.nn.Module):
                                 self.accelerator,
                                 self.weight_dtype,
                                 global_step,
-                                None,
-                                None
+                                train_dataset.instance_prompt
                             )
 
                     logs = {"loss": loss.detach().item(), "lr": lr_scheduler.get_last_lr()[0]}
