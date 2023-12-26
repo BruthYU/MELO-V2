@@ -20,7 +20,7 @@ os.environ['http_proxy'] = '127.0.0.1:7890'
 os.environ['https_proxy'] = '127.0.0.1:7890'
 LOG = logging.getLogger(__name__)
 
-identifier_list = ["Tom's", "sks", "Jackie's", "Cunningham‘s", "Lang's"]
+identifier_list = ["sks", "Tom's", "Jackie's", "Cunningham‘s", "Lang's"]
 subject_list = ["rc_car", "shiny_sneaker", "cat", "vase", "pink_sunglasses"]
 
 

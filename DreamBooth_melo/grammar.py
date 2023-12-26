@@ -1,4 +1,2 @@
-a = "{} in abc"
-b = a.format("I")
-
-print(b)
+s = "a rc_sneaker_123"
+print(s.replace("_"," "))

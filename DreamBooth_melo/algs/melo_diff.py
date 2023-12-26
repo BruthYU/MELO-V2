@@ -96,7 +96,7 @@ def log_validation(
 
 
     # Validation Prompt
-    instance_prompt = instance_prompt.replace(args.instance_prompt, "")
+    instance_prompt = instance_prompt.replace(args.instance_prompt, "").strip()
     pipeline_args = {"prompt": args.validation_prompt.format(instance_prompt)}
 
     # run inference
@@ -113,8 +113,8 @@ def log_validation(
             image = pipeline(**pipeline_args, image=image, generator=generator).images[0]
             images.append(image)
 
-    for id,img in enumerate(images):
-        img.save(f'validation_{global_step}_{id}.jpg')
+    for id, img in enumerate(images):
+        img.save(f'{instance_prompt.replace(" ", "_")}_{global_step}_{id}.jpg')
 
     del pipeline
     torch.cuda.empty_cache()
@@ -141,7 +141,7 @@ class MELO_DIFF(torch.nn.Module):
         r_num = config.model.num_block * config.model.num_rank_per_block.unet
         self.unet_melo_config = MeloConfig(
             r = r_num,
-            lora_alpha= r_num * 2,
+            lora_alpha= r_num * 0.6,
             target_modules= list(config.model.UNET_TARGET_MODULES),
             lora_dropout= config.model.lora_dropout,
             fan_in_fan_out= config.model.fan_in_fan_out,
@@ -151,7 +151,7 @@ class MELO_DIFF(torch.nn.Module):
         r_num = config.model.num_block * config.model.num_rank_per_block.text_encoder
         self.text_encoder_melo_config = MeloConfig(
             r= r_num,
-            lora_alpha= r_num * 2,
+            lora_alpha= r_num * 0.6,
             target_modules= list(config.model.TEXT_ENCODER_TARGET_MODULES),
             lora_dropout= config.model.lora_text_encoder_dropout,
             fan_in_fan_out= config.model.fan_in_fan_out,
@@ -203,10 +203,7 @@ class MELO_DIFF(torch.nn.Module):
         if self.config.allow_tf32:
             torch.backends.cuda.matmul.allow_tf32 = True
 
-        self.params_to_optimize = (
-            itertools.chain(self.unet.parameters(),
-                            self.text_encoder.parameters()) if self.config.train_text_encoder else self.unet.parameters()
-        )
+
 
         weight_dtype = torch.float32
         if self.accelerator.mixed_precision == "fp16":
@@ -248,8 +245,13 @@ class MELO_DIFF(torch.nn.Module):
         self.unet.reset_dynamic_mapping([self.block_index] * train_dataloader.batch_size)
         self.text_encoder.reset_dynamic_mapping([self.block_index] * train_dataloader.batch_size)
 
+
+        params_to_optimize = (
+            itertools.chain(self.unet.parameters(),
+                            self.text_encoder.parameters()) if self.config.train_text_encoder else self.unet.parameters()
+        )
         optimizer = self.optimizer_class(
-            self.params_to_optimize,
+            params_to_optimize,
             lr=self.config.learning_rate,
             betas=(self.config.adam_beta1, self.config.adam_beta2),
             weight_decay=self.config.adam_weight_decay,
