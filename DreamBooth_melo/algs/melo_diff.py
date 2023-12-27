@@ -9,6 +9,7 @@ import math
 import itertools
 from torch.nn import Parameter
 import importlib
+
 from utils import *
 from PIL import Image
 import torch.nn.functional as F
@@ -437,6 +438,24 @@ class MELO_DIFF(torch.nn.Module):
                         break
 
             self.block_index += 1
+
+
+    def save_pipeline(self):
+        self.accelerator.wait_for_everyone()
+        if self.accelerator.is_main_process:
+            unwrapped_unet = self.accelerator.unwrap_model(self.unet)
+            unwrapped_unet.save_pretrained(
+                os.path.join(self.config.output_dir, "unet"), state_dict= self.accelerator.get_state_dict(self.unet)
+            )
+            if self.config.train_text_encoder:
+                unwrapped_text_encoder = self.accelerator.unwrap_model(self.text_encoder)
+                unwrapped_text_encoder.save_pretrained(
+                    os.path.join(self.config.output_dir, "text_encoder"),
+                    state_dict=self.accelerator.get_state_dict(self.text_encoder)
+                )
+            self.accelerator.end_training()
+
+
 
 
 

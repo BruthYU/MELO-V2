@@ -37,6 +37,7 @@ class dream_trainer:
         self.alg.enable_melo()
         for train_dataset, train_dataloader in zip(self.train_dataset_list, self.train_dataloader_list):
             self.alg.edit(train_dataset, train_dataloader)
+        self.alg.save_pipeline()
 
     def prepare_dataset(self):
         # Generate class images if prior preservation is enabled.
