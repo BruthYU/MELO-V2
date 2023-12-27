@@ -85,6 +85,7 @@ def unwrap_peft(input_model):
     return input_model
 
 
+
 def log_validation(
     text_encoder,
     tokenizer,
@@ -100,49 +101,44 @@ def log_validation(
         f" {args.validation_prompt}."
     )
 
-
     pipeline_args = {}
 
     if vae is not None:
         pipeline_args["vae"] = vae
 
-    if text_encoder is not None:
-        text_encoder = unwrap_peft(text_encoder)
+    for idx, (identifier, subject) in enumerate(zip(identifier_list, subject_list)):
+        unet.reset_dynamic_mapping([idx])
+        text_encoder.reset_dynamic_mapping([idx])
 
-    if unet is not None:
-        unet = unwrap_peft(unet)
+        # create pipeline (note: lora_mapping in unet and text_encoder)
+        pipeline = DiffusionPipeline.from_pretrained(
+            args.pretrained_model_name_or_path,
+            tokenizer=tokenizer,
+            text_encoder=unwrap_peft(text_encoder),
+            unet=unwrap_peft(unet),
+            revision=args.revision,
+            torch_dtype=weight_dtype,
+            safety_checker=None,
+            **pipeline_args,
+        )
 
-    # create pipeline (note: unet and vae are loaded again in float32)
-    pipeline = DiffusionPipeline.from_pretrained(
-        args.pretrained_model_name_or_path,
-        tokenizer=tokenizer,
-        text_encoder=text_encoder,
-        unet=unet,
-        revision=args.revision,
-        torch_dtype=weight_dtype,
-        safety_checker=None,
-        **pipeline_args,
-    )
+        scheduler_args = {}
 
-    # We train on the simplified learning objective. If we were previously predicting a variance, we need the scheduler to ignore it
-    scheduler_args = {}
+        if "variance_type" in pipeline.scheduler.config:
+            variance_type = pipeline.scheduler.config.variance_type
 
-    if "variance_type" in pipeline.scheduler.config:
-        variance_type = pipeline.scheduler.config.variance_type
+            if variance_type in ["learned", "learned_range"]:
+                variance_type = "fixed_small"
 
-        if variance_type in ["learned", "learned_range"]:
-            variance_type = "fixed_small"
+            scheduler_args["variance_type"] = variance_type
 
-        scheduler_args["variance_type"] = variance_type
+        module = importlib.import_module("diffusers")
+        scheduler_class = getattr(module, args.validation_scheduler)
+        pipeline.scheduler = scheduler_class.from_config(pipeline.scheduler.config, **scheduler_args)
+        pipeline = pipeline.to(device)
+        pipeline.set_progress_bar_config(disable=True)
 
-    module = importlib.import_module("diffusers")
-    scheduler_class = getattr(module, args.validation_scheduler)
-    pipeline.scheduler = scheduler_class.from_config(pipeline.scheduler.config, **scheduler_args)
-    pipeline = pipeline.to(device)
-    pipeline.set_progress_bar_config(disable=True)
-
-    for idx,(identifier, subject) in enumerate(zip(identifier_list, subject_list)):
-        subject = subject.replace("_"," ")
+        subject = subject.replace("_", " ")
         instance_prompt = " ".join([identifier, subject])
         pipeline_args = {"prompt": args.validation_prompt.format(instance_prompt)}
 
@@ -159,9 +155,9 @@ def log_validation(
                 image = Image.open(image)
                 image = pipeline(**pipeline_args, image=image, generator=generator).images[0]
                 images.append(image)
-    
-        for id,img in enumerate(images):
-            img.save(f'validation_{idx}_{id}.jpg')
+
+        for img_idx, img in enumerate(images):
+            img.save(f'eval_{instance_prompt.replace(" ","_")}_{img_idx}.jpg')
 
     del pipeline
     torch.cuda.empty_cache()

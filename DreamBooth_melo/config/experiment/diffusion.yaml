@@ -18,7 +18,7 @@ train_text_encoder: true
 train_batch_size: 1
 sample_batch_size: 4
 num_train_epochs: 1
-max_train_steps: 800
+max_train_steps: 400
 checkpoints_total_limit: null
 resume_from_checkpoint: null
 gradient_accumulation_steps: 1

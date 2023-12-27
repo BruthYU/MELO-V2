@@ -57,26 +57,23 @@ def log_validation(
     if vae is not None:
         pipeline_args["vae"] = vae
 
-    if text_encoder is not None:
-        text_encoder = accelerator.unwrap_model(text_encoder)
-        text_encoder = unwrap_peft(text_encoder)
-
-    if unet is not None:
-        unet = accelerator.unwrap_model(unet)
-        unet = unwrap_peft(unet)
-
+    text_encoder = accelerator.unwrap_model(text_encoder)
+    unet = accelerator.unwrap_model(unet)
 
     # create pipeline (note: unet and vae are loaded again in float32)
     pipeline = DiffusionPipeline.from_pretrained(
         args.pretrained_model_name_or_path,
         tokenizer=tokenizer,
-        text_encoder=text_encoder,
-        unet=unet,
+        text_encoder=unwrap_peft(text_encoder),
+        unet=unwrap_peft(unet),
         revision=args.revision,
         torch_dtype=weight_dtype,
         safety_checker=None,
         **pipeline_args,
     )
+
+
+
 
     # We train on the simplified learning objective. If we were previously predicting a variance, we need the scheduler to ignore it
     scheduler_args = {}
