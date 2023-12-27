@@ -20,10 +20,11 @@ os.environ['http_proxy'] = '127.0.0.1:7890'
 os.environ['https_proxy'] = '127.0.0.1:7890'
 LOG = logging.getLogger(__name__)
 
-identifier_list = ["sks", "Tom's", "Jackie's", "Cunningham‘s", "Lang's"]
-subject_list = ["rc_car", "shiny_sneaker", "cat", "vase", "pink_sunglasses"]
+# identifier_list = ["sks", "Tom's", "Jackie's", "Cunningham‘s", "Lang's"]
+# subject_list = ["rc_car", "shiny_sneaker", "cat", "vase", "pink_sunglasses"]
 
-
+identifier_list = ["sks", "Tom's"]
+subject_list = ["rc_car", "shiny_sneaker"]
 def check_config(config):
     base_dir = hydra.utils.get_original_cwd()
     config.instance_data_dir = os.path.join(base_dir, config.instance_data_dir)
