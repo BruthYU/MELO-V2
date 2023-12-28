@@ -30,6 +30,9 @@ from diffusers import (
 # from models import BertClassifier
 LOG = logging.getLogger(__name__)
 
+
+os.environ['http_proxy'] = '127.0.0.1:7890'
+os.environ['https_proxy'] = '127.0.0.1:7890'
 identifier_list = ["sks", "Tom's", "Jackie's", "Cunningham‘s", "Lang's"]
 subject_list = ["rc_car", "shiny_sneaker", "cat", "vase", "pink_sunglasses"]
 
@@ -97,8 +100,7 @@ def log_validation(
 ):
 
     LOG.info(
-        f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
-        f" {args.validation_prompt}."
+        f"[Running validation]"
     )
 
     pipeline_args = {}
@@ -107,6 +109,7 @@ def log_validation(
         pipeline_args["vae"] = vae
 
     for idx, (identifier, subject) in enumerate(zip(identifier_list, subject_list)):
+
         unet.reset_dynamic_mapping([idx])
         text_encoder.reset_dynamic_mapping([idx])
 
@@ -140,6 +143,9 @@ def log_validation(
 
         subject = subject.replace("_", " ")
         instance_prompt = " ".join([identifier, subject])
+        LOG.info(f"Generating {args.num_validation_images} images with prompt: "
+                 f"{args.validation_prompt.format(instance_prompt)}.")
+
         pipeline_args = {"prompt": args.validation_prompt.format(instance_prompt)}
 
         # run inference
@@ -228,7 +234,7 @@ def run(config):
         device,
         weight_dtype,
     )
-    LOG.info("Peft-backened Dreambooth Evaluation Finishd")
+    LOG.info("MELO-backened Dreambooth Evaluation Finished")
 
 if __name__ == '__main__':
     run()
