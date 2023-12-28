@@ -42,7 +42,7 @@ hub_model_id: null
 allow_tf32: true
 validation_prompt: "a photo of {} in the Acropolis"
 num_validation_images: 4
-validation_steps: 400
+validation_steps: 800
 mixed_precision: null
 prior_generation_precision: null
 local_rank: -1
