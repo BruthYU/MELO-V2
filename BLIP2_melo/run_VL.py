@@ -13,6 +13,7 @@ from tqdm import tqdm
 import pickle
 import models
 from multimodal_trainer import caption_trainer, vqa_trainer
+#from get_b4c import caption_trainer, vqa_trainer
 
 os.environ['http_proxy'] = '127.0.0.1:7890'
 os.environ['https_proxy'] = '127.0.0.1:7890'
@@ -21,15 +22,15 @@ OmegaConf.register_new_resolver("uuid", lambda: uuid())
 LOG = logging.getLogger(__name__)
 @hydra.main(config_path='config', config_name='config')
 def run(config):
-    grace_config_keys = ['edit_lr','init_radius','expand_mode','key_id','num_edit_per_block','num_block','num_rank_per_block']
-    model_config_keys = ['target_modules','grace_layer']
+    melo_config_keys = ['edit_lr','init_radius','expand_mode','key_id','num_edit_per_block','num_block','num_rank_per_block']
+    model_config_keys = ['target_modules']
 
-    GRACE_CONFIG = dict(config.grace)
+    MELO_CONFIG = dict(config.mleo)
     MODEL_CONFIG = dict(config.model)
 
 
-    for k in grace_config_keys:
-        LOG.info(f'[-GRACE CONFIG-]  {k}: {GRACE_CONFIG[k]}')
+    for k in melo_config_keys:
+        LOG.info(f'[-GRACE CONFIG-]  {k}: {MELO_CONFIG[k]}')
     for k in model_config_keys:
         LOG.info(f'[-MODEL CONFIG-]  {k}: {MODEL_CONFIG[k]}')
 
@@ -56,17 +57,19 @@ def run(config):
     '''
     if config.task == "caption":
         from multimodal_dataset import CaptionDataset
+        #from clip_dataset import CaptionDataset
         batch_size = config.grace.num_edit_per_block
-        train_ds = CaptionDataset('/home/hy/Yjh/EasyEdit-main/data/caption_train_edit.json',processor, config=config)
-        eval_ds = CaptionDataset('/home/hy/Yjh/EasyEdit-main/data/caption_eval_edit.json',processor, config=config)
-        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=train_ds.collate_fn)
+        #train_ds = CaptionDataset('/home/hy/Yjh/EasyEdit-main/data/caption_train_edit.json',processor, config=config)
+        eval_ds = CaptionDataset('/home/hy/Yjh/MELO-master/FlagEmbedding_CLIP/caption_eval_edit.json',processor, config=config)
+        #train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=False, collate_fn=train_ds.collate_fn)
         eval_loader = DataLoader(eval_ds, batch_size=batch_size, shuffle=False, collate_fn=eval_ds.collate_fn)
     elif config.task == "vqa":
         from multimodal_dataset import VQADataset
+        from metrics import F1_ACC, is_qa_error
         batch_size = config.grace.num_edit_per_block
-        train_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_train.json',processor, config=config)
+        train_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_train_sorted_proccess.json',processor, config=config)
         eval_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_eval.json',processor, config=config)
-        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True, collate_fn=train_ds.collate_fn)
+        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=False, collate_fn=train_ds.collate_fn)
         eval_loader = DataLoader(eval_ds, batch_size=batch_size, shuffle=False, collate_fn=eval_ds.collate_fn)
 
     
@@ -104,7 +107,7 @@ def run(config):
 
     # Trainer
     if config.task == "caption":
-        trainer = caption_trainer(config,alg,processor,train_loader,eval_loader)
+        trainer = caption_trainer(config,alg,processor,eval_loader)
     elif config.task == "vqa":
         trainer = vqa_trainer(config,alg,processor,train_loader,eval_loader)
     

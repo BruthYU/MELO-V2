@@ -77,5 +77,15 @@ hydra:
     dir: ./outputs/${now:%Y-%m-%d_%H-%M-%S_%f}
     subdir: ${hydra.job.num}
 
+clip:
+  data_file_name: "clip_data/clip_vqa_data.pkl"
+  context_length: 50
+  width: 2560
+  device: cuda
+  epoch: 10
+  layers: 2
+  batch_size: 128
+  checkpoint_pth: "clip_data/KeyCLIP.pth"
+
 
 

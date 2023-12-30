@@ -1,9 +1,10 @@
 # @package _global_
 task: caption
-grace:
+gmelo:
   _name: grace
-  num_iter: 20
-  init_radius: 0.8
+  num_iter: 30
+  init_radius: 0.3
+  init_vision_radius: 0.5
   dist_fn: euc # euc, mmd, cos
   val_init: cold # cold, warm
   val_train: sgd # sgd, pert
@@ -14,9 +15,9 @@ grace:
   num_pert: 8 # only matters when using perturbation training
   key_id: -1
   num_edit_per_block: 1
-  num_block: 1000
+  num_block: 2850
   num_rank_per_block: 4
-  metric_period: 100
+  metric_period: 1000
   #edit_lr: 1e-3
   edit_lr: 1e-4
 

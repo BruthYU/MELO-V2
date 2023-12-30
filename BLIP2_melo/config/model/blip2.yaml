@@ -12,6 +12,5 @@ target_modules:
   - language_model.model.decoder.layers.30.self_attn.q_proj
   - language_model.model.decoder.layers.31.self_attn.v_proj
   - language_model.model.decoder.layers.31.self_attn.q_proj
-grace_layer:   language_model.model.decoder.layers.8.self_attn.out_proj
 
 pt: null

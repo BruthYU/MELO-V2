@@ -16,125 +16,6 @@ from metrics import compute_multimodal_edit_results
 
 LOG = logging.getLogger(__name__)
 
-class zsre_trainer:
-    def __init__(self, config, alg, tokenize, metric, edit_loader, upstream_loader, edit_holdout_loader):
-        self.config = config
-        self.alg = alg
-        self.tokenize = tokenize
-        self.metric = metric
-        self.edit_loader = edit_loader
-        self.upstream_loader  = upstream_loader
-        self.edit_holdout_loader = edit_holdout_loader
-        self.batch_size = config.grace.num_edit_per_block
-
-    def pre_editing_analyse(self):
-        self.alg.disable_melo()
-
-        with torch.no_grad():
-            metric_dict = {'F1': [], 'ACC': []}
-            for batch in iter(self.edit_loader):
-                edit_input = self.tokenize(batch, self.alg.model_tok, self.config['device'])
-                f1, acc = self.metric(self.alg, edit_input)
-                metric_dict['F1'].append(f1)
-                metric_dict['ACC'].append(acc)
-            original_f1 = torch.Tensor(metric_dict['F1']).nanmean()
-            original_acc = torch.Tensor(metric_dict['ACC']).nanmean()
-            LOG.info(
-                f'Original average performance on edit set: F1: {original_f1.item():.4f} || ACC: {original_acc.item():.4f}')
-
-            TRR_dict = {'F1': [], 'ACC': []}
-            for up_batch in iter(self.upstream_loader):
-                upstream_input = self.tokenize(up_batch, self.alg.model_tok, self.config['device'])
-                up_f1, up_acc = self.metric(self.alg, upstream_input)
-                TRR_dict['F1'].append(up_f1)
-                TRR_dict['ACC'].append(up_acc)
-            upstream_f1 = torch.Tensor(TRR_dict['F1']).nanmean()
-            upstream_acc = torch.Tensor(TRR_dict['ACC']).nanmean()
-            LOG.info(
-                f'Original average performance on upstream set: F1: {upstream_f1.item():.4f} || ACC: {upstream_acc.item():.4f}')
-
-    def run_edit(self):
-        # --- editing start ---
-        self.alg.enable_melo()
-        n_edits = 0
-        batch_history = []
-        total_edit_time = 0
-        all_edit_time = {}
-        all_HIS = {}
-        all_HOLDOUT = {}
-        all_UP = {}
-        all_VecDB = {}
-
-        for i, batch in tqdm(enumerate(self.edit_loader)):
-            if i == 25:
-                print(i)
-            LOG.info(f'-------------------------    Edit Batch {i} ----------------------------------')
-            tokens = self.tokenize(batch, self.alg.model_tok, self.config['device'])
-            if n_edits < self.config.max_n_edits:
-                n_edits += self.batch_size
-                batch_history.append(tokens)
-
-                # --- perform edit ---
-                edit_start = time()
-                self.alg.edit(tokens)
-                edit_time = time() - edit_start
-                total_edit_time += edit_time
-
-                # --- Compute and log metrics ---
-                log_dict = {}
-                with torch.no_grad():
-                    ES_f1, ES_acc = self.metric(self.alg, tokens)
-                    LOG.info(f'Batch {i} after Editing: F1: {ES_f1} || ACC: {ES_acc}')
-
-                    if (i > 0 and n_edits % self.config.grace.metric_period == 0) or (i == len(self.edit_loader) - 1):
-                        LOG.info(
-                            f'-------------------------    Eval all {n_edits} history edits----------------------------------')
-                        if self.config.task == 'qa':
-                            holdout = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, self.config['device'])) for e in
-                                       iter(self.edit_holdout_loader)]
-                            holdout_f1 = torch.tensor([x[0] for x in holdout]).nanmean()
-                            holdout_acc = torch.tensor([x[1] for x in holdout]).nanmean()
-                        else:
-                            pass
-
-                        HISTORY = [self.metric(self.alg, tokens) for tokens in batch_history]
-                        HISTORY_f1 = torch.tensor([x[0] for x in HISTORY]).nanmean()
-                        HISTORY_acc = torch.tensor([x[1] for x in HISTORY]).nanmean()
-
-                        UP = [self.metric(self.alg, self.tokenize(e, self.alg.model_tok, self.config["device"], test=True)) for e in
-                              iter(self.upstream_loader)]
-                        UP_f1 = torch.tensor([x[0] for x in UP]).nanmean()
-                        UP_acc = torch.tensor([x[1] for x in UP]).nanmean()
-                        # --- Log metrics and push to Weights & Biases ---
-                        log_dict["UP"] = {'UP_f1': UP_f1.item(), 'UP_acc': UP_acc.item()}  # Test Retention Rate
-                        log_dict["HIS"] = {'HIS_f1': HISTORY_f1.item(),
-                                           'HIS_acc': HISTORY_acc.item()}  # Error Retention Rate
-                        log_dict["ES"] = {'ES_f1': ES_f1, 'ES_acc': ES_acc}  # Edit Success
-                        log_dict["train_time"] = edit_time / 60  # Time it takes to make one edit
-                        log_dict["edit"] = batch["text"]  # Raw edit input
-                        log_dict["edit_label"] = batch["labels"]  # Raw edit label
-                        log_dict["n_edits"] = n_edits  # Raw edit label
-                        log_dict['holdout'] = {'holdout_f1': holdout_f1.item(), 'holdout_acc': holdout_acc.item()}
-                        print(f"Number of edits {n_edits}")
-                        for k in log_dict:
-                            LOG.info(f"[+eval result+]{k}: {log_dict[k]}")
-
-                        all_UP[n_edits] = log_dict["UP"]
-                        all_HIS[n_edits] = log_dict["HIS"]
-                        all_HOLDOUT[n_edits] = log_dict["holdout"]
-                        all_edit_time[n_edits] = total_edit_time
-                        VecDB_info = self.alg.get_VecDB_info()
-                        for k in VecDB_info:
-                            LOG.info(f"[+VecDB Info+]{k}: {VecDB_info[k]}")
-                        all_VecDB[n_edits] = VecDB_info
-                        pass
-
-        with open(f'log.pkl', 'wb') as f:
-            pickle.dump(
-                {'all_UP': all_UP, 'all_HIS': all_HIS, 'all_HOLDOUT': all_HOLDOUT, 'all_edit_time': all_edit_time,
-                 'all_VecDB': all_VecDB}, f)
-
-        LOG.info(f"[**Total Edit Time**] {total_edit_time / 60} mins")
 
 
 
@@ -201,11 +82,11 @@ def kl_loc_loss(pre, post, mask=None):
 
 
 class caption_trainer:
-    def __init__(self, config, alg, processor, train_loader, eval_loader):
+    def __init__(self, config, alg, processor,eval_loader):
         self.config = config
         self.alg = alg
         self.processor = processor
-        self.train_loader = train_loader
+        #self.train_loader = train_loader
         self.eval_loader  = eval_loader
         self.batch_size = config.grace.num_edit_per_block
 
@@ -376,6 +257,8 @@ class caption_trainer:
     def run_edit(self):
         # --- editing start ---
         self.alg.enable_melo()
+        self.alg.init_dino(self.config)
+        self.alg.init_flagembedding(self.config)
         n_edits = 0
         batch_history = []
         loc_history = []
@@ -399,15 +282,31 @@ class caption_trainer:
                     self.alg.disable_melo()
 
 
-                    ###测试一下vision_outputs
-                    vision_outputs = self.alg.get_output(batch["edit_inner"]).vision_outputs.last_hidden_state[:,0,:]
-                    re_vision_outputs = self.alg.get_output(batch["edit_outer_image"]).vision_outputs.last_hidden_state[:,0,:]
-                    vo.append(vision_outputs)
-                    revo.append(re_vision_outputs)
-                    for iii in vo:
-                        #print(torch.cdist(re_vision_outputs, iii, p=2, compute_mode='donot_use_mm_for_euclid_dist'))
-                        print(torch.nn.functional.cosine_similarity(re_vision_outputs, iii,dim=1))
-                    ###测试完毕
+                    # ###测试一下vision_outputs
+                    # # vision_outputs = self.alg.get_output(batch["edit_inner"]).vision_outputs.last_hidden_state[:,0,:]
+                    # # re_vision_outputs = self.alg.get_output(batch["edit_outer_image"]).vision_outputs.last_hidden_state[:,0,:]
+                    # # loc_vision_outputs = self.alg.get_output(batch["loc_image"]).vision_outputs.last_hidden_state[:,0,:]
+
+                    # # vision_outputs = self.alg.get_output(batch["edit_inner"]).vision_outputs.pooler_output
+                    # # re_vision_outputs = self.alg.get_output(batch["edit_outer_image"]).vision_outputs.pooler_output
+                    # # loc_vision_outputs = self.alg.get_output(batch["loc_image"]).vision_outputs.pooler_output
+
+                    # vision_outputs = torch.mean(self.alg.get_output(batch["edit_inner"]).qformer_outputs.last_hidden_state,1)
+                    # re_vision_outputs = torch.mean(self.alg.get_output(batch["edit_outer_image"]).qformer_outputs.last_hidden_state,1)
+                    # loc_vision_outputs = torch.mean(self.alg.get_output(batch["loc_image"]).qformer_outputs.last_hidden_state,1)
+
+                    # vo.append(vision_outputs)
+                    # revo.append(re_vision_outputs)
+                    # for iii in vo:
+                    #     #print(torch.cdist(re_vision_outputs, iii, p=2, compute_mode='donot_use_mm_for_euclid_dist'))
+                    #     print(torch.nn.functional.cosine_similarity(re_vision_outputs, iii,dim=1))
+                    # print("==========================================================")
+                    # for iii in vo:
+                    #     print(torch.nn.functional.cosine_similarity(loc_vision_outputs, iii,dim=1))
+                    # print("==========================================================")
+                    # for iii in vo:
+                    #     print(torch.nn.functional.cosine_similarity(vision_outputs, iii,dim=1))
+                    # ###测试完毕
 
                     base_outputs = self.alg.get_output(batch["loc"])
                     if not isinstance(base_outputs, torch.Tensor):
@@ -432,6 +331,8 @@ class caption_trainer:
                 # --- perform edit ---
                 self.alg.enable_melo()
                 edit_start = time()
+                self.alg.get_image(batch["edit_inner"])
+                self.alg.get_image_id(batch["edit_inner"])
                 self.alg.edit(batch["edit_inner"])
                 edit_time = time() - edit_start
                 total_edit_time += edit_time
@@ -443,7 +344,7 @@ class caption_trainer:
                     result=compute_multimodal_edit_results(self.alg,batch,self.processor)
                     print(result)
 
-
+                    self.alg.get_image(batch["loc"])
                     post_base_outputs = self.alg.get_output(batch["loc"])
                     if not isinstance(post_base_outputs, torch.Tensor):
                         post_base_logits = post_base_outputs.logits
@@ -452,6 +353,7 @@ class caption_trainer:
                     post_base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(post_base_logits, dim=-1), k=1, dim=-1).indices
                     base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(base_logits, dim=-1), k=1, dim=-1).indices
 
+                    self.alg.get_image(batch["loc_image"])
                     post_image_base_outputs = self.alg.get_output(batch["loc_image"])
                     if not isinstance(post_image_base_outputs, torch.Tensor):
                         post_image_base_logits = post_image_base_outputs.logits
@@ -477,6 +379,7 @@ class caption_trainer:
                         for k,iter in enumerate(batch_history):
                             result = compute_multimodal_edit_results(self.alg, iter , self.processor)
                             # Text locality
+                            self.alg.get_image(iter["loc"])
                             post_base_outputs = self.alg.get_output(iter["loc"])
                             if not isinstance(post_base_outputs, torch.Tensor):
                                 post_base_logits = post_base_outputs.logits
@@ -486,6 +389,7 @@ class caption_trainer:
                             base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(loc_history[k]["loc"], dim=-1), k=1, dim=-1).indices
 
                             # Image locality
+                            self.alg.get_image(iter["loc_image"])
                             post_image_base_outputs = self.alg.get_output(iter["loc_image"])
                             if not isinstance(post_image_base_outputs, torch.Tensor):
                                 post_image_base_logits = post_image_base_outputs.logits
@@ -528,6 +432,8 @@ class vqa_trainer:
 
     def run_edit(self):
         self.alg.enable_melo()
+        self.alg.init_dino(self.config)
+        self.alg.init_flagembedding(self.config)
         n_edits = 0
         batch_history = []
         loc_history = []
@@ -540,6 +446,8 @@ class vqa_trainer:
         vo=[]
 
         for i, batch in tqdm(enumerate(self.eval_loader)):
+            if i==96:
+                print("wait")
             LOG.info(f'-------------------------    Edit Batch {i} ----------------------------------')
             if n_edits < self.config.max_n_edits:
                 n_edits += self.batch_size
@@ -572,6 +480,8 @@ class vqa_trainer:
                 # --- perform edit ---
                 self.alg.enable_melo()
                 edit_start = time()
+                self.alg.get_image(batch["edit_inner"])
+                self.alg.get_image_id(batch["edit_inner"])
                 self.alg.edit(batch["edit_inner"])
                 edit_time = time() - edit_start
                 total_edit_time += edit_time
@@ -583,7 +493,7 @@ class vqa_trainer:
                     result=compute_multimodal_edit_results(self.alg,batch,self.processor)
                     print(result)
 
-
+                    self.alg.get_image(batch["loc"])
                     post_base_outputs = self.alg.get_output(batch["loc"])
                     if not isinstance(post_base_outputs, torch.Tensor):
                         post_base_logits = post_base_outputs.logits
@@ -592,6 +502,7 @@ class vqa_trainer:
                     post_base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(post_base_logits, dim=-1), k=1, dim=-1).indices
                     base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(base_logits, dim=-1), k=1, dim=-1).indices
 
+                    self.alg.get_image(batch["loc_image"])
                     post_image_base_outputs = self.alg.get_output(batch["loc_image"])
                     if not isinstance(post_image_base_outputs, torch.Tensor):
                         post_image_base_logits = post_image_base_outputs.logits
@@ -608,7 +519,7 @@ class vqa_trainer:
                     info_dict["loc/acc"] = sum(post_base_logits_softmax_top_k.view(-1) == base_logits_softmax_top_k.view(-1))/post_base_logits_softmax_top_k.view(-1).shape[0]
                     info_dict['image_loc/acc'] = sum(post_image_base_logits_softmax_top_k.view(-1) == base_image_logits_softmax_top_k.view(-1))/post_image_base_logits_softmax_top_k.view(-1).shape[0]
                     
-                    LOG.info(f"Batch {i} after Editing: edit/acc: {info_dict['edit/acc']} || inner/rephrase_acc: {info_dict['inner/rephrase_acc']} || image_rephrase/acc: {info_dict['image_rephrase/acc']} || image_loc/acc: {info_dict['image_loc/acc']} || loc/acc: {info_dict['loc/acc']}")
+                    LOG.info(f"Batch {i} after Editing: edit/acc: {info_dict['edit/acc']} || inner/rephrase_acc: {info_dict['inner/rephrase_acc']} || image_rephrase/acc: {info_dict['image_rephrase/acc']} || image_loc/acc: {info_dict['image_loc/acc']} || loc/acc: {info_dict['loc/acc']} || time: {edit_time} || total_time: {total_edit_time}")
 
                     if (i > 0 and n_edits % self.config.grace.metric_period == 0) or (i == len(self.eval_loader) - 1):
                         LOG.info(f'-------------------------    Eval all {n_edits} history edits----------------------------------')
@@ -617,6 +528,7 @@ class vqa_trainer:
                         for k,iter in enumerate(batch_history):
                             result = compute_multimodal_edit_results(self.alg, iter , self.processor)
                             # Text locality
+                            self.alg.get_image(iter["loc"])
                             post_base_outputs = self.alg.get_output(iter["loc"])
                             if not isinstance(post_base_outputs, torch.Tensor):
                                 post_base_logits = post_base_outputs.logits
@@ -626,6 +538,7 @@ class vqa_trainer:
                             base_logits_softmax_top_k = torch.topk(torch.nn.functional.softmax(loc_history[k]["loc"], dim=-1), k=1, dim=-1).indices
 
                             # Image locality
+                            self.alg.get_image(iter["loc_image"])                            
                             post_image_base_outputs = self.alg.get_output(iter["loc_image"])
                             if not isinstance(post_image_base_outputs, torch.Tensor):
                                 post_image_base_logits = post_image_base_outputs.logits
