@@ -1128,13 +1128,6 @@ class GraceLayer:
 
 
 
-    # def search(self, batch_query,batch_query_vison):
-    #     smallest_distance_list, nearest_cluster_list = self.VecDB.search_database(batch_query)
-    #     smallest_distance_list_vison, nearest_cluster_list_vision, topk_smallest_distance_list_viosn, topk_nearest_cluster_list_vision = self.VisionVecDB.search_database(batch_query_vison)
-    #     image_id = self.VisionVecDB.search_vision_cluster(batch_query_vison,topk_smallest_distance_list_viosn, topk_nearest_cluster_list_vision)
-    #     lora_block_mapping = self.VecDB.search_vision_text_cluster(batch_query, smallest_distance_list, nearest_cluster_list,image_id)
-    #     return smallest_distance_list, nearest_cluster_list, smallest_distance_list_vison, nearest_cluster_list_vision, lora_block_mapping
-
     def search(self, batch_query,batch_query_vison):
         if batch_query_vison is None:
             text_dists = self.VecDB.search_combine_databasev2(batch_query)

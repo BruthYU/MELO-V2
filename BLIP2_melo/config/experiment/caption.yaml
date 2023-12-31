@@ -1,6 +1,6 @@
 # @package _global_
 task: caption
-gmelo:
+melo:
   _name: grace
   num_iter: 30
   init_radius: 0.3

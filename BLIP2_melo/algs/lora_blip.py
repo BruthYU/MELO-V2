@@ -81,46 +81,8 @@ class LORA_BLIP(torch.nn.Module):
     def enable_melo(self):
         self.model.base_model.enable_adapter_layers()
 
-    def set_grace_store_mode(self, mode):
-        self.model.base_model.set_grace_store_mode_clip(mode=mode)
-
-
-    def init_image_encoder(self):
-        if self.config.image_encoder_name == 'dino':
-            processor = transforms.Compose([
-                    transforms.Resize(256),
-                    transforms.CenterCrop(224),
-                    transforms.ToTensor(),
-                    transforms.Normalize([0.485, 0.456, 0.406],
-                                        [0.229, 0.224, 0.225])
-                ])
-            encoder = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14_lc')
-            encoder = encoder.to(self.config.device)
-
-        elif self.config.image_encoder_name == 'clip':
-            from transformers import CLIPProcessor, CLIPModel
-            encoder = CLIPModel.from_pretrained("/home/hy/Yjh/MELO-master/basemodel/vit")
-            processor = CLIPProcessor.from_pretrained("/home/hy/Yjh/MELO-master/basemodel/vit")
-        elif self.config.image_encoder_name == 'vit':
-            from transformers import ViTFeatureExtractor, AutoModel
-            processor = ViTFeatureExtractor.from_pretrained('/home/hy/Yjh/MELO-master/basemodel/VIT')
-            encoder = AutoModel.from_pretrained('/home/hy/Yjh/MELO-master/basemodel/VIT')
-        else:
-            raise ValueError("Unknown Encoder Name !")
-
-        self.image_encoder = encoder
-        self.image_processor = processor
-
-    def init_flagembedding(self, config):
-        from FlagEmbedding import FlagModel
-        encoder = FlagModel('/home/hy/Yjh/MELO-master/basemodel/flag-embedding/',
-                          query_instruction_for_retrieval='Represent this sentence for searching relevant passages:')
-        self.text_encoder = encoder
-
-
     def edit(self, tokens):
         # set MELO lora_block_mapping
-
 
         # MELO_V2 could automatically identify lora parameters to be optimized
         params_to_optimize = (itertools.chain(self.model.parameters()))
