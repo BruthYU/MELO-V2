@@ -1012,7 +1012,7 @@ class VisionVecDB:
     def search_combine_databasev2(self, batch_query):
         dists = []
         for x in self.table:
-            temp= self.cos_sim(batch_query,x['cluster_center'])
+            temp= self.cos_sim(batch_query, x['cluster_center'])
             dists.append(temp)
         dists_topk=torch.stack(dists).transpose(0, 1).squeeze(-1)
         #dists = torch.stack(dists).view(-1, len(batch_query))

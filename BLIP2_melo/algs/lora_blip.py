@@ -24,11 +24,11 @@ from peft.tuners.melo import LoraLayer
 # from models import BertClassifier
 LOG = logging.getLogger(__name__)
 
-
 def translate_tokens(tokens, from_tok, to_tok):
     tokens = tokens.masked_fill(tokens == -100, from_tok.pad_token_id)
     text = from_tok.batch_decode(tokens, skip_special_tokens=True)
     return to_tok(text, return_tensors="pt")["input_ids"].to(tokens.device)
+
 
 
 class LORA_BLIP(torch.nn.Module):
@@ -81,9 +81,10 @@ class LORA_BLIP(torch.nn.Module):
     def enable_melo(self):
         self.model.base_model.enable_adapter_layers()
 
-    def edit(self, tokens):
-        # set MELO lora_block_mapping
+    def set_lora_mapping(self, lora_block_mapping):
+        self.model.reset_dynamic_mapping(lora_block_mapping)
 
+    def edit(self, batch):
         # MELO_V2 could automatically identify lora parameters to be optimized
         params_to_optimize = (itertools.chain(self.model.parameters()))
         optimizer = torch.optim.Adam(params_to_optimize, self.config.melo.edit_lr)
@@ -92,21 +93,15 @@ class LORA_BLIP(torch.nn.Module):
 
         self.losses = []
         for i in range(self.config.melo.num_iter):
-            # --- insert iteration into each layer (only initiate keys on first iteration) ---
-            setattr(self.model.get_submodule(self.grace_layer), "batch_iter", i)
-
-            # --- pass tokens through model (including through the GRACE layer) ---
-            # outputs = self.model.model(**tokens)
-            # input_ids=token["iamge"]
-            pexel_values = tokens["image"]
-            input_ids = tokens["input_ids"]
-            attention_mask = tokens["attention_mask"]
+            pexel_values = batch["image"]
+            input_ids = batch["input_ids"]
+            attention_mask = batch["attention_mask"]
 
             labels = []
             temp = input_ids.tolist()
             for j, iter in enumerate(temp):
                 for k in range(len(iter)):
-                    if k < tokens["prompts_len"][j]:
+                    if k < batch["prompts_len"][j]:
                         iter[k] = -100
                 labels.append(iter)
             labels = torch.tensor(labels)
@@ -153,12 +148,7 @@ class LORA_BLIP(torch.nn.Module):
     # def generate(self, *args, **kwargs):
     #     return self.model.model.generate(*args, **kwargs)
 
-    def get_VecDB_info(self):
-        VecDB_logdict = {}
-        VecDB_logdict["num_cluster"] = len(getattr(self.model.get_submodule(self.grace_layer), "VecDB"))
-        VecDB_logdict["conflict_num"] = getattr(self.model.get_submodule(self.grace_layer), "VecDB").conflict_num
-        VecDB_logdict["forget_keys"] = len(getattr(self.model.get_submodule(self.grace_layer), "VecDB").forget_keys)
-        return VecDB_logdict
+
 
 
 if __name__ == '__main__':

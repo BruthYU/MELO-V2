@@ -13,7 +13,7 @@ from tqdm import tqdm
 import pickle
 import models
 from metrics import compute_multimodal_edit_results
-
+from database import Router
 LOG = logging.getLogger(__name__)
 
 class vqa_trainer:
@@ -22,13 +22,12 @@ class vqa_trainer:
         self.alg = alg
         self.processor = processor
         self.train_loader = train_loader
-        self.eval_loader  = eval_loader
+        self.eval_loader = eval_loader
         self.batch_size = config.grace.num_edit_per_block
+        self.router = Router(self.config)
 
     def run_edit(self):
         self.alg.enable_melo()
-        self.alg.init_dino(self.config)
-        self.alg.init_flagembedding(self.config)
         n_edits = 0
         batch_history = []
         loc_history = []
@@ -41,14 +40,14 @@ class vqa_trainer:
         vo=[]
 
         for i, batch in tqdm(enumerate(self.eval_loader)):
-            if i==96:
-                print("wait")
             LOG.info(f'-------------------------    Edit Batch {i} ----------------------------------')
             if n_edits < self.config.max_n_edits:
                 n_edits += self.batch_size
                 batch_history.append(batch)
 
-                #To 
+                '''
+                Test Locality
+                '''
                 with torch.no_grad():
                     self.alg.disable_melo()
 
@@ -68,11 +67,17 @@ class vqa_trainer:
                     loc_dic["loc_image"]=base_image_logits
                     loc_history.append(loc_dic)
 
-                # --- perform edit ---
+                '''
+                Perform Edit
+                '''
                 self.alg.enable_melo()
                 edit_start = time()
-                self.alg.get_image(batch["edit_inner"])
-                self.alg.get_image_id(batch["edit_inner"])
+
+                LOG.info(f"[Vector Database Operation for Batch {i}]")
+                batch_query, batch_query_vision = self.router.batch_embed(batch["edit_inner"])
+                self.router.database_batch_add(batch_query, batch_query_vision)
+
+                self.alg.set_lora_mapping([i] * len(batch["edit_inner"]))
                 self.alg.edit(batch["edit_inner"])
                 edit_time = time() - edit_start
                 total_edit_time += edit_time
@@ -81,7 +86,7 @@ class vqa_trainer:
                 log_dict = {}
                 with torch.no_grad():
                     # Editing loss
-                    result=compute_multimodal_edit_results(self.alg,batch,self.processor)
+                    result=compute_multimodal_edit_results(self.alg, batch, self.processor)
                     print(result)
 
                     self.alg.get_image(batch["loc"])
