@@ -8,11 +8,12 @@ from omegaconf import OmegaConf,open_dict
 import numpy as np
 import torch
 from utils import *
+
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import pickle
 import models
-from multimodal_trainer import caption_trainer, vqa_trainer
+from multimodal_trainer import vqa_trainer
 #from get_b4c import caption_trainer, vqa_trainer
 
 os.environ['http_proxy'] = '127.0.0.1:7890'
@@ -65,6 +66,8 @@ def run(config):
         eval_loader = DataLoader(eval_ds, batch_size=batch_size, shuffle=False, collate_fn=eval_ds.collate_fn)
     elif config.task == "vqa":
         from multimodal_dataset import VQADataset
+        from metrics import compute_multimodal_edit_results
+        metric = compute_multimodal_edit_results
         batch_size = config.melo.num_edit_per_block
         train_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_train_sorted_proccess.json',processor, config=config)
         eval_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_eval.json',processor, config=config)
@@ -80,9 +83,10 @@ def run(config):
 
     # Trainer
     if config.task == "caption":
-        trainer = caption_trainer(config,alg,processor,eval_loader)
+        # trainer = caption_trainer(config,alg,eval_loader)
+        pass
     elif config.task == "vqa":
-        trainer = vqa_trainer(config,alg,processor,train_loader,eval_loader)
+        trainer = vqa_trainer(config, alg, metric, train_loader, eval_loader)
     
 
     # trainer.pre_editing_analyse()

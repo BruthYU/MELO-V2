@@ -32,7 +32,7 @@ def translate_tokens(tokens, from_tok, to_tok):
 
 
 class LORA_BLIP(torch.nn.Module):
-    def __init__(self, model, config, model_processor, scale=None):
+    def __init__(self, model, config, scale=None):
         super(LORA_BLIP, self).__init__()
         self.config = config
 
@@ -60,7 +60,6 @@ class LORA_BLIP(torch.nn.Module):
 
         '''Load Tokenizer
         '''
-        self.model_processor = model_processor
 
 
 

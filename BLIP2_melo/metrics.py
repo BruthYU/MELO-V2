@@ -1,6 +1,8 @@
 import torch
 from utils import *
 import logging
+
+
 LOG = logging.getLogger(__name__)
 
 '''Multimodal Metrics
@@ -33,22 +35,21 @@ def prepare_multimodal_edit(hparams,
     } 
     return ret
 
-def compute_multimodal_edit_quality(model, batch, processor):
-    
+def compute_multimodal_edit_quality(alg, router, batch):
+    lora_block_mapping = router.get_lora_mapping(batch)
+    alg.set_lora_mapping(lora_block_mapping)
+
+    '''Inference'''
     with torch.no_grad():
-        outputs = model.model_output(batch)
+        outputs = alg.get_output(batch)
         if isinstance(outputs, torch.Tensor):
             logits = outputs.detach().cpu()
         else:
             logits = outputs.logits.detach().cpu()
-            #logits = outputs.vision_outputs.detach().cpu()     
-        # targ = outputs.labels.detach().cpu()
         targ = batch["labels"].cpu()
     if logits.dim() == 3:
         logits = logits[:, :-1]
-        #targ = targ[:, 1:]
         logits = logits[:, -targ.shape[1]:]
-    #mask = targ != -100
     mask = targ != 1
     targ[~mask] = 0
     pred_ids = logits.argmax(-1).masked_fill(~mask, 0).detach().cpu()
@@ -56,31 +57,20 @@ def compute_multimodal_edit_quality(model, batch, processor):
     correct = correct & mask
     num_non_padding = mask.sum().float().item()
     acc = correct.sum() / num_non_padding
-    
     return acc, pred_ids.numpy()
 
-
-
-def compute_multimodal_edit_results(
-    model,
-    record,
-    processor
-):
+def compute_multimodal_edit_results(alg, router, batch):
     ret = {}
-    model.get_image(record["edit_inner"])
-    ret['rewrite_acc'], _ = compute_multimodal_edit_quality(model, record["edit_inner"],processor)
+    ret['rewrite_acc'], _ = compute_multimodal_edit_quality(alg, router, batch["edit_inner"])
     
-    if "edit_outer" in record.keys():
-        model.get_image(record["edit_outer"])
-        ret['rephrase_acc'], _ = compute_multimodal_edit_quality(model, record["edit_outer"],processor)
+    if "edit_outer" in batch.keys():
+        ret['rephrase_acc'], _ = compute_multimodal_edit_quality(alg, router, batch["edit_outer"])
 
-        
-    if "edit_outer_image" in record.keys():
-        model.get_image(record["edit_outer_image"])
-        ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality(model, record["edit_outer_image"],processor)
-
+    if "edit_outer_image" in batch.keys():
+        ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality(alg, batch["edit_outer_image"])
 
     return ret
+
 
 
 
