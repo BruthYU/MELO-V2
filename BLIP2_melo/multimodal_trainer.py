@@ -32,12 +32,8 @@ class vqa_trainer:
         batch_history = []
         loc_history = []
         total_edit_time = 0
-        all_edit_time = {}
-        all_HIS = {}
-        all_HOLDOUT = {}
-        all_UP = {}
-        all_VecDB = {}
-        vo=[]
+
+        #TODO LOG every batch or log history
 
         for i, batch in tqdm(enumerate(self.eval_loader)):
             LOG.info(f'-------------------------    Edit Batch {i} ----------------------------------')
@@ -46,50 +42,49 @@ class vqa_trainer:
                 batch_history.append(batch)
 
                 '''
-                Test Locality
+                Get Original Outputs (disable melo)
                 '''
                 with torch.no_grad():
                     self.alg.disable_melo()
-
-                    base_outputs = self.alg.get_output(batch["loc"])
+                    base_outputs = self.alg.get_ouput(batch["loc"])
                     if not isinstance(base_outputs, torch.Tensor):
                         base_logits = base_outputs.logits
                     else:  
                         base_logits = base_outputs
 
-                    base_image_outputs = self.alg.get_output(batch["loc_image"])
+                    base_image_outputs = self.alg.get_ouput(batch["loc_image"])
                     if not isinstance(base_image_outputs, torch.Tensor):
                         base_image_logits = base_image_outputs.logits
                     else:
                         base_image_logits = base_image_outputs
                     loc_dic={}
-                    loc_dic["loc"]=base_logits
-                    loc_dic["loc_image"]=base_image_logits
+                    loc_dic["loc"] = base_logits
+                    loc_dic["loc_image"] = base_image_logits
                     loc_history.append(loc_dic)
 
                 '''
-                Perform Edit
+                Perform Edit (enable melo)
                 '''
                 self.alg.enable_melo()
                 edit_start = time()
-
-                LOG.info(f"[Vector Database Operation for Batch {i}]")
+                LOG.info(f"------[Vector Database Operation for Batch {i}]---------")
                 batch_query, batch_query_vision = self.router.batch_embed(batch["edit_inner"])
                 self.router.database_batch_add(batch_query, batch_query_vision)
-
                 self.alg.set_lora_mapping([i] * len(batch["edit_inner"]))
                 self.alg.edit(batch["edit_inner"])
                 edit_time = time() - edit_start
                 total_edit_time += edit_time
 
-            # --- Compute and log metrics ---
+                '''
+                Just Evaluate Edit Success for Each Batch
+                '''
                 log_dict = {}
                 with torch.no_grad():
-                    # Editing loss
-                    result=compute_multimodal_edit_results(self.alg, batch, self.processor)
+                    '''Edit Success and Generality'''
+                    result = compute_multimodal_edit_results(self.alg, batch, self.processor)
                     print(result)
 
-                    self.alg.get_image(batch["loc"])
+                    '''Locality'''
                     post_base_outputs = self.alg.get_output(batch["loc"])
                     if not isinstance(post_base_outputs, torch.Tensor):
                         post_base_logits = post_base_outputs.logits
@@ -117,7 +112,7 @@ class vqa_trainer:
                     
                     LOG.info(f"Batch {i} after Editing: edit/acc: {info_dict['edit/acc']} || inner/rephrase_acc: {info_dict['inner/rephrase_acc']} || image_rephrase/acc: {info_dict['image_rephrase/acc']} || image_loc/acc: {info_dict['image_loc/acc']} || loc/acc: {info_dict['loc/acc']} || time: {edit_time} || total_time: {total_edit_time}")
 
-                    if (i > 0 and n_edits % self.config.grace.metric_period == 0) or (i == len(self.eval_loader) - 1):
+                    if (i > 0 and n_edits % self.config.metric.metric_period == 0) or (i == len(self.eval_loader) - 1):
                         LOG.info(f'-------------------------    Eval all {n_edits} history edits----------------------------------')
                         averager = RunningStatAverager("val")
 

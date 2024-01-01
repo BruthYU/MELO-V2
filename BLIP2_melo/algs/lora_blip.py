@@ -122,8 +122,10 @@ class LORA_BLIP(torch.nn.Module):
 
         setattr(self.model.get_submodule(self.grace_layer), "training", False)
 
-    def get_output(self, batch):
-        setattr(self.model.get_submodule(self.grace_layer), "training", False)
+    def get_output(self, batch, lora_block_mapping):
+        # reset batch lora_block_mapping
+        self.set_lora_mapping(lora_block_mapping)
+
         if isinstance(batch["image"], torch.Tensor):
             pixel_values = batch["image"]
             input_ids = batch["input_ids"]
@@ -136,7 +138,9 @@ class LORA_BLIP(torch.nn.Module):
 
         return outputs
 
-    def generate_output(self, batch):
+    def generate_output(self, batch, lora_block_mapping):
+        # reset batch lora_block_mapping
+        self.set_lora_mapping(lora_block_mapping)
         setattr(self.model.get_submodule(self.grace_layer), "training", False)
         if isinstance(batch["image"], torch.Tensor):
             pexel_values = batch["image"]

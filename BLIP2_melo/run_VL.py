@@ -65,38 +65,11 @@ def run(config):
         eval_loader = DataLoader(eval_ds, batch_size=batch_size, shuffle=False, collate_fn=eval_ds.collate_fn)
     elif config.task == "vqa":
         from multimodal_dataset import VQADataset
-        from metrics import F1_ACC, is_qa_error
-        batch_size = config.grace.num_edit_per_block
+        batch_size = config.melo.num_edit_per_block
         train_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_train_sorted_proccess.json',processor, config=config)
         eval_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_eval.json',processor, config=config)
         train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=False, collate_fn=train_ds.collate_fn)
         eval_loader = DataLoader(eval_ds, batch_size=batch_size, shuffle=False, collate_fn=eval_ds.collate_fn)
-
-    
-    # # test_original
-    # # pip install accelerate
-    # import requests
-    # from PIL import Image
-    # from transformers import Blip2Processor, Blip2ForConditionalGeneration
-
-    # processor_test = Blip2Processor.from_pretrained("/home/hy/Yjh/Blip2_test/Blip2/")
-    # model_test = Blip2ForConditionalGeneration.from_pretrained("/home/hy/Yjh/Blip2_test/Blip2/", device_map="auto")
-
-    # for i, batch in tqdm(enumerate(train_loader)):
-    #     pexel_values=batch["loc_image"]["image"]
-    #     labels=batch["loc_image"]["labels"]
-    #     input_ids=batch["loc_image"]["prompt_ids"]
-    #     outputs = model_test.generate(input_ids=input_ids, pixel_values=pexel_values)
-    #     re=processor_test.batch_decode(outputs, skip_special_tokens=True)
-    #     ori=processor_test.batch_decode(labels, skip_special_tokens=True)
-    #     print(outputs)
-    #     print(re)
-    #     print(ori)
-    #     print(processor_test.batch_decode(input_ids, skip_special_tokens=True))
-    #     print("++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-
-
-
 
 
     alg_module = importlib.import_module(f'algs.{config.alg}')
