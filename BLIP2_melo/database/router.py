@@ -47,7 +47,7 @@ class Router:
         return encoder
 
     def batch_embed(self, batch):
-        image, text_input, image_id = batch["ori_image"], batch["text_input"], batch["image_id"]
+        image, text_input = batch["ori_image"], batch["text_input"]
 
         # Text Embedding of Query
         batch_query = [torch.from_numpy(self.text_encoder.encode(x)).unsqueeze(0).float() for x in text_input]

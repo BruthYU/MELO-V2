@@ -49,7 +49,7 @@ class vqa_trainer:
                 LOG.info(f"------[Vector Database Operation for Batch {i}]---------")
                 batch_query, batch_query_vision = self.router.batch_embed(batch["edit_inner"])
                 self.router.database_batch_add(batch_query, batch_query_vision)
-                self.alg.set_lora_mapping([i] * len(batch["edit_inner"]))
+                self.alg.set_lora_mapping([i] * len(batch["edit_inner"]["labels"]))
                 self.alg.edit(batch["edit_inner"])
                 edit_time = time() - edit_start
                 total_edit_time += edit_time
@@ -61,7 +61,7 @@ class vqa_trainer:
                         averager = RunningStatAverager("val")
 
                         for k, eval_batch in enumerate(batch_history):
-                            result = self.metric(self.alg, eval_batch)
+                            result = self.metric(self.alg, self.router, eval_batch)
                             # Text locality
                             lora_block_mapping = self.router.get_lora_mapping(eval_batch["loc"])
                             post_base_outputs = self.alg.get_output(eval_batch["loc"], lora_block_mapping)

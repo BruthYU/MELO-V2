@@ -37,11 +37,10 @@ def prepare_multimodal_edit(hparams,
 
 def compute_multimodal_edit_quality(alg, router, batch):
     lora_block_mapping = router.get_lora_mapping(batch)
-    alg.set_lora_mapping(lora_block_mapping)
 
     '''Inference'''
     with torch.no_grad():
-        outputs = alg.get_output(batch)
+        outputs = alg.get_output(batch, lora_block_mapping)
         if isinstance(outputs, torch.Tensor):
             logits = outputs.detach().cpu()
         else:
@@ -67,7 +66,7 @@ def compute_multimodal_edit_results(alg, router, batch):
         ret['rephrase_acc'], _ = compute_multimodal_edit_quality(alg, router, batch["edit_outer"])
 
     if "edit_outer_image" in batch.keys():
-        ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality(alg, batch["edit_outer_image"])
+        ret['image_rephrase_acc'], _ = compute_multimodal_edit_quality(alg, router, batch["edit_outer_image"])
 
     return ret
 

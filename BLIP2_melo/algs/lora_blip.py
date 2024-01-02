@@ -115,11 +115,12 @@ class LORA_BLIP(torch.nn.Module):
             optimizer.step()
             optimizer.zero_grad()
             scheduler.step()
-            self.losses.append(loss.detach().cpu().numpy())
-            LOG.info(f'batch loss in iter {i}: {loss.detach().cpu().numpy()}')
-        self.loss = loss  # Log final loss
+            numpy_loss = loss.detach().cpu().numpy()
+            self.losses.append(numpy_loss)
+            LOG.info(f'batch loss in iter {i}: {numpy_loss:.6f}')
 
-        setattr(self.model.get_submodule(self.grace_layer), "training", False)
+
+
 
     def get_output(self, batch, lora_block_mapping):
         # reset batch lora_block_mapping
@@ -140,7 +141,6 @@ class LORA_BLIP(torch.nn.Module):
     def generate_output(self, batch, lora_block_mapping):
         # reset batch lora_block_mapping
         self.set_lora_mapping(lora_block_mapping)
-        setattr(self.model.get_submodule(self.grace_layer), "training", False)
         if isinstance(batch["image"], torch.Tensor):
             pexel_values = batch["image"]
             labels = batch["labels"]

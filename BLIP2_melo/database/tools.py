@@ -2,7 +2,7 @@ import torch
 
 NO_LORA = -100
 
-def cos_sim(self, a: torch.Tensor, b: torch.Tensor):
+def cos_sim(a: torch.Tensor, b: torch.Tensor):
     if not isinstance(a, torch.Tensor):
         a = torch.tensor(a)
 

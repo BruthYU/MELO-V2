@@ -386,7 +386,7 @@ class VQADataset(BaseDataset):
         self.prompt = "Question: {} Short answer:"
 
 
-        preprocessed = os.path.join(self.config.base_dir, f"vqa_{self.split}.pkl")
+        preprocessed = os.path.join("/home/hy/yulang", f"vqa_{self.split}.pkl")
         if os.path.exists(preprocessed):
             LOG.info(f"Loading preprocessed vqa data from {preprocessed}")
             with open(preprocessed,"rb") as file:

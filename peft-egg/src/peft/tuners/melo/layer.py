@@ -1,14 +1,14 @@
 import math
 import warnings
 from typing import Optional, Tuple, Union
-
+import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from peft.tuners.tuners_utils import BaseTunerLayer
 from peft.utils.other import transpose
-
+LOG = logging.getLogger(__name__)
 # LORA_BLOCK_MAPPING = []
 # NO_LORA = -100
 
@@ -52,7 +52,8 @@ class Dynamic(nn.Module):
 
 
     def forward(self, inputs):
-
+        # LOG.info(f"self.LORA_BLOCK_MAPPING: {self.LORA_BLOCK_MAPPING}")
+        # LOG.info(f"self.num_rank_per_block: {self.num_rank_per_block}")
         block_list = []
         assert len(self.LORA_BLOCK_MAPPING) != 0, "No element in LORA_BLOCK_MAPPING"
         for block_id in self.LORA_BLOCK_MAPPING:
@@ -235,6 +236,7 @@ class Linear(nn.Linear, LoraLayer):
 
     def forward(self, x: torch.Tensor):
         previous_dtype = x.dtype
+
         if self.active_adapter not in self.lora_A.keys():
             return F.linear(x, transpose(self.weight, self.fan_in_fan_out), bias=self.bias)
         if self.disable_adapters:
@@ -245,6 +247,7 @@ class Linear(nn.Linear, LoraLayer):
             result = F.linear(x, transpose(self.weight, self.fan_in_fan_out), bias=self.bias)
             lora_A = self.nd_lora_A(self.lora_A[self.active_adapter].T).mT
             lora_B = self.nd_lora_B(self.lora_B[self.active_adapter])
+            # LOG.info(f"x.shape: {x.shape}, lora_A: {lora_A.shape}, lora_B: {lora_B.shape}")
             result += (self.lora_dropout[self.active_adapter](x) @ lora_A @ lora_B) \
                       * self.scaling[self.active_adapter]
 
