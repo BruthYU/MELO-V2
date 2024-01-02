@@ -26,7 +26,7 @@ def run(config):
     melo_config_keys = ['edit_lr','init_radius','expand_mode','key_id','num_edit_per_block','num_block','num_rank_per_block']
     model_config_keys = ['target_modules']
 
-    MELO_CONFIG = dict(config.mleo)
+    MELO_CONFIG = dict(config.melo)
     MODEL_CONFIG = dict(config.model)
 
 
@@ -69,9 +69,11 @@ def run(config):
         from metrics import compute_multimodal_edit_results
         metric = compute_multimodal_edit_results
         batch_size = config.melo.num_edit_per_block
-        train_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_train_sorted_proccess.json',processor, config=config)
-        eval_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_eval.json',processor, config=config)
-        train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=False, collate_fn=train_ds.collate_fn)
+        # train_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_train_sorted_proccess.json',
+        #                       processor, config=config, split="train")
+        eval_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_eval.json',
+                             processor, config=config, split="eval")
+        # train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=False, collate_fn=train_ds.collate_fn)
         eval_loader = DataLoader(eval_ds, batch_size=batch_size, shuffle=False, collate_fn=eval_ds.collate_fn)
 
 
@@ -86,7 +88,7 @@ def run(config):
         # trainer = caption_trainer(config,alg,eval_loader)
         pass
     elif config.task == "vqa":
-        trainer = vqa_trainer(config, alg, metric, train_loader, eval_loader)
+        trainer = vqa_trainer(config, alg, metric, None, eval_loader)
     
 
     # trainer.pre_editing_analyse()

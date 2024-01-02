@@ -1,5 +1,5 @@
 import torch
-from database import cos_sim, NO_LORA
+from database.tools import cos_sim, NO_LORA
 
 class mem_point:
     def __init__(self, key, value, id):

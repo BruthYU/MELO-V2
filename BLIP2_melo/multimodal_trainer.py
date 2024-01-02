@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import pickle
 import models
-from database import Router
+from database.router import Router
 LOG = logging.getLogger(__name__)
 
 class vqa_trainer:
@@ -22,7 +22,7 @@ class vqa_trainer:
         self.metric = metric
         self.train_loader = train_loader
         self.eval_loader = eval_loader
-        self.batch_size = config.grace.num_edit_per_block
+        self.batch_size = config.melo.num_edit_per_block
         self.router = Router(self.config)
 
     def run_edit(self):

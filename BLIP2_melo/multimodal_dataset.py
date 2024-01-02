@@ -1,9 +1,10 @@
 import json
 from typing import Iterable
-
+import logging
 from torch.utils.data import Dataset, ConcatDataset
 from torch.utils.data.dataloader import default_collate
-
+import pickle
+LOG = logging.getLogger(__name__)
 
 class BaseDataset(Dataset):
     def __init__(
@@ -115,6 +116,8 @@ class CaptionDataset(BaseDataset):
         self.processor = processor
 
         self.prompt = "Question: {} Short answer: "
+
+
 
         data = []
         for i, record in enumerate(self.annotation):
@@ -350,7 +353,7 @@ class CaptionDataset(BaseDataset):
 
 
 class VQADataset(BaseDataset):
-    def __init__(self, data_dir: str, processor, size:  typing.Optional[int] = None, config=None, *args, **kwargs):
+    def __init__(self, data_dir: str, processor, size:  typing.Optional[int] = None, config=None, split = "eval"):
         """
         vis_root (string): Root directory of images (e.g. coco/images/)
         ann_root (string): directory to store the annotation file
@@ -376,58 +379,71 @@ class VQADataset(BaseDataset):
         self.config = config
         self.tok = tokenizer
         self.max_length = 32
-        self.processor=processor
+        self.processor = processor
+        self.split = split
+
 
         self.prompt = "Question: {} Short answer:"
 
-        data = []
-        for i, record in enumerate(self.annotation):
-            
-            if record['alt'] == "":
-                continue
-            
-            # image_path = os.path.join(self.vis_root, record["image"])
-            # rephrase_image_path = os.path.join(self.rephrase_root, record["image_rephrase"])
-            # locality_image_path = os.path.join(self.vis_root, record['m_loc'])
 
-            image_path = "/home/hy/Yjh/EasyEdit-main/"+record["image"]
-            rephrase_image_path = "/home/hy/Yjh/EasyEdit-main/"+record["image_rephrase"]
-            locality_image_path = "/home/hy/Yjh/EasyEdit-main/"+ record['m_loc']
-            
-            image = Image.open(image_path).convert("RGB")
-            rephrase_image = Image.open(rephrase_image_path).convert("RGB")
-            locality_image = Image.open(locality_image_path).convert("RGB")
+        preprocessed = os.path.join(self.config.base_dir, f"vqa_{self.split}.pkl")
+        if os.path.exists(preprocessed):
+            LOG.info(f"Loading preprocessed vqa data from {preprocessed}")
+            with open(preprocessed,"rb") as file:
+                content = pickle.load(file)
+                self._data = content
+        else:
+            data = []
+            for i, record in enumerate(self.annotation):
 
-            # image = self.vis_processor(image)
-            # rephrase_image = self.vis_processor(rephrase_image)  
-            # locality_image = self.vis_processor(locality_image)  
-                      
-            item = {
-                'prompt': record['src'],
-                'pred': record['pred'],
-                'target': record['alt'],
-                'rephrase_prompt': record['rephrase'],
-                'image': image,
-                'image_rephrase': rephrase_image,
-                'cond': "{} >> {} || {}".format(
-                    record['pred'],
-                    record['alt'],
-                    record['src']
-                )
-            }
-            
-            item['locality_prompt'] = record['loc']
-            item['locality_ground_truth'] = record['loc_ans']
-            
-            item['multimodal_locality_image'] = locality_image
-            item['multimodal_locality_prompt'] = record['m_loc_q']
-            item['multimodal_locality_ground_truth'] = record['m_loc_a']
-            item['image_id'] = record["image"]
-            data.append(item)
-            
-        if size is not None:
-            data = data[:size]        
-        self._data = data
+                if record['alt'] == "":
+                    continue
+
+                # image_path = os.path.join(self.vis_root, record["image"])
+                # rephrase_image_path = os.path.join(self.rephrase_root, record["image_rephrase"])
+                # locality_image_path = os.path.join(self.vis_root, record['m_loc'])
+
+                image_path = "/home/hy/Yjh/EasyEdit-main/"+record["image"]
+                rephrase_image_path = "/home/hy/Yjh/EasyEdit-main/"+record["image_rephrase"]
+                locality_image_path = "/home/hy/Yjh/EasyEdit-main/"+ record['m_loc']
+
+                image = Image.open(image_path).convert("RGB")
+                rephrase_image = Image.open(rephrase_image_path).convert("RGB")
+                locality_image = Image.open(locality_image_path).convert("RGB")
+
+                # image = self.vis_processor(image)
+                # rephrase_image = self.vis_processor(rephrase_image)
+                # locality_image = self.vis_processor(locality_image)
+
+                item = {
+                    'prompt': record['src'],
+                    'pred': record['pred'],
+                    'target': record['alt'],
+                    'rephrase_prompt': record['rephrase'],
+                    'image': image,
+                    'image_rephrase': rephrase_image,
+                    'cond': "{} >> {} || {}".format(
+                        record['pred'],
+                        record['alt'],
+                        record['src']
+                    )
+                }
+
+                item['locality_prompt'] = record['loc']
+                item['locality_ground_truth'] = record['loc_ans']
+
+                item['multimodal_locality_image'] = locality_image
+                item['multimodal_locality_prompt'] = record['m_loc_q']
+                item['multimodal_locality_ground_truth'] = record['m_loc_a']
+                item['image_id'] = record["image"]
+                data.append(item)
+
+            if size is not None:
+                data = data[:size]
+            self._data = data
+            LOG.info(f"Save processed vqa data at {preprocessed}")
+            with open(preprocessed, "wb") as file:
+                pickle.dump(self._data, file, protocol=pickle.HIGHEST_PROTOCOL)
 
     def __getitem__(self, index):
         return self._data[index]

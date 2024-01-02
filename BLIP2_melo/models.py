@@ -75,9 +75,9 @@ class BertClassifier(torch.nn.Module):
 
 def get_hf_model(config):
     ModelClass = getattr(transformers, config.model.class_name)
-    LOG.info(f"Loading model class {ModelClass} with name {config.model.name} from cache dir {scr()}")
+    LOG.info(f"Loading model class {ModelClass} with name {config.model.name}")
     if config.model.pt is None:
-        model = ModelClass.from_pretrained(config.model.name, cache_dir=scr())
+        model = ModelClass.from_pretrained(config.model.name)
     elif config.re_init_model:
         print("Downloading untrained model.")
         model = ModelClass.from_pretrained(config.model.name)
@@ -88,7 +88,7 @@ def get_hf_model(config):
             print(f"Loaded model: {config.model.pt}")
         except:
             print("Couldn't load model: {config.model.pt}. Downloading new model.")
-            model = ModelClass.from_pretrained(config.model.name, cache_dir=scr())
+            model = ModelClass.from_pretrained(config.model.name)
 
 
     if config.dropout is not None:
