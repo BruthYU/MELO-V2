@@ -13,6 +13,7 @@ from tqdm import tqdm
 import pickle
 import models
 from database.router import Router
+from database.tools import NO_LORA
 LOG = logging.getLogger(__name__)
 
 class vqa_trainer:
@@ -51,7 +52,7 @@ class vqa_trainer:
                     else:
                         base_logits = base_outputs
 
-                    base_image_outputs = self.alg.get_output(batch["loc_image"])
+                    base_image_outputs = self.alg.get_output(batch["loc_image"], None)
                     if not isinstance(base_image_outputs, torch.Tensor):
                         base_image_logits = base_image_outputs.logits
                     else:
@@ -85,6 +86,8 @@ class vqa_trainer:
                             result = self.metric(self.alg, self.router, eval_batch)
                             # Text locality
                             lora_block_mapping = self.router.get_lora_mapping(eval_batch["loc"])
+
+
                             post_base_outputs = self.alg.get_output(eval_batch["loc"], lora_block_mapping)
                             if not isinstance(post_base_outputs, torch.Tensor):
                                 post_base_logits = post_base_outputs.logits

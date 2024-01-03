@@ -37,6 +37,11 @@ def prepare_multimodal_edit(hparams,
 
 def compute_multimodal_edit_quality(alg, router, batch):
     lora_block_mapping = router.get_lora_mapping(batch)
+    # acc_count = [1 if x == batch_index else 0 for x in lora_block_mapping]
+    # num_edit = len(batch["labels"])
+    # LOG.info(f"Hit rate: {sum(acc_count) / num_edit}:.3f")
+    # lora_block_mapping = [batch_index] * num_edit
+
 
     '''Inference'''
     with torch.no_grad():
