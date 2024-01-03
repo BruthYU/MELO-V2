@@ -124,7 +124,8 @@ class LORA_BLIP(torch.nn.Module):
 
     def get_output(self, batch, lora_block_mapping):
         # reset batch lora_block_mapping
-        self.set_lora_mapping(lora_block_mapping)
+        if lora_block_mapping is not None:
+            self.set_lora_mapping(lora_block_mapping)
 
         if isinstance(batch["image"], torch.Tensor):
             pixel_values = batch["image"]

@@ -31,7 +31,6 @@ class vqa_trainer:
         batch_history = []
         loc_history = []
         total_edit_time = 0
-
         log_dict = {}
 
 
@@ -40,6 +39,28 @@ class vqa_trainer:
             if n_edits < self.config.max_n_edits:
                 n_edits += self.batch_size
                 batch_history.append(batch)
+
+                '''
+                Record Local Output (disable melo)
+                '''
+                self.alg.disable_melo()
+                with torch.no_grad():
+                    base_outputs = self.alg.get_output(batch["loc"], None)
+                    if not isinstance(base_outputs, torch.Tensor):
+                        base_logits = base_outputs.logits
+                    else:
+                        base_logits = base_outputs
+
+                    base_image_outputs = self.alg.get_output(batch["loc_image"])
+                    if not isinstance(base_image_outputs, torch.Tensor):
+                        base_image_logits = base_image_outputs.logits
+                    else:
+                        base_image_logits = base_image_outputs
+                    loc_dic={}
+                    loc_dic["loc"]=base_logits
+                    loc_dic["loc_image"]=base_image_logits
+                    loc_history.append(loc_dic)
+
 
                 '''
                 Perform Edit (enable melo)
