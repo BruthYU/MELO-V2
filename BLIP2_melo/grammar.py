@@ -1,2 +1,5 @@
-a = {'a':1, 'b':2, 'c':3}
-print(len(a))
+def non_return():
+    return 1, None
+
+a, b = non_return()
+print(a,b)

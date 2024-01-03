@@ -55,23 +55,25 @@ class Router:
 
         # Image Embedding of Query
         batch_query_vision = None
-        if self.config.image_encoder_name == 'dino':
-            image_preprocess = [self.image_processor(x).unsqueeze(0).to("cuda")
-                                for x in image]
-            image_preprocess = torch.cat(image_preprocess,dim=0)
-            batch_query_vision = self.image_encoder(image_preprocess)
+        # No Image for Text Locality
+        if image is not None:
+            if self.config.image_encoder_name == 'dino':
+                image_preprocess = [self.image_processor(x).unsqueeze(0).to("cuda")
+                                    for x in image]
+                image_preprocess = torch.cat(image_preprocess,dim=0)
+                batch_query_vision = self.image_encoder(image_preprocess)
 
-        elif self.config.image_encoder_name == 'clip':
-            image_preprocess = [self.image_processor(images= x, return_tensors="pt", padding=True)["pixel_values"]
-                                for x in image]
-            image_preprocess  = torch.cat(image_preprocess,dim=0)
-            batch_query_vision= F.normalize(self.image_encoder.get_image_features(image_preprocess),p=2,dim=1)
+            elif self.config.image_encoder_name == 'clip':
+                image_preprocess = [self.image_processor(images= x, return_tensors="pt", padding=True)["pixel_values"]
+                                    for x in image]
+                image_preprocess  = torch.cat(image_preprocess,dim=0)
+                batch_query_vision= F.normalize(self.image_encoder.get_image_features(image_preprocess),p=2,dim=1)
 
-        elif self.config.image_encoder_name == 'vit':
-            image_preprocess = [self.image_processor(images=x, return_tensors="pt", padding=True)["pixel_values"]
-                                for x in image]
-            image_preprocess = torch.cat(image_preprocess, dim=0)
-            batch_query_vision = F.normalize(self.image_encoder(pixel_values=image_preprocess).pooler_output, p=2, dim=1)
+            elif self.config.image_encoder_name == 'vit':
+                image_preprocess = [self.image_processor(images=x, return_tensors="pt", padding=True)["pixel_values"]
+                                    for x in image]
+                image_preprocess = torch.cat(image_preprocess, dim=0)
+                batch_query_vision = F.normalize(self.image_encoder(pixel_values=image_preprocess).pooler_output, p=2, dim=1)
         return batch_query, batch_query_vision
 
     def database_batch_add(self, batch_query, batch_query_vision):

@@ -17,7 +17,7 @@ melo:
   num_edit_per_block: 1
   num_block: 6350
   num_rank_per_block: 4
-  metric_period: 5
+  metric_period: 2
   edit_lr: 1e-5
   #edit_lr: 1e-4
 
