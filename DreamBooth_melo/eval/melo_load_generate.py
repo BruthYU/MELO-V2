@@ -169,11 +169,11 @@ def log_validation(
     torch.cuda.empty_cache()
 
 
-@hydra.main(config_path='config', config_name='config')
+@hydra.main(config_path='../config', config_name='config')
 def run(config):
     base_dir = hydra.utils.get_original_cwd()
     device = torch.device('cuda')
-    checkpoint_dir = os.path.join(base_dir,"outputs/2023-12-28_09-39-20/text-inversion-model")
+    checkpoint_dir = os.path.join(base_dir, "../outputs/2023-12-28_09-39-20/text-inversion-model")
     check_config(config)
 
 

@@ -20,7 +20,8 @@ from diffusers import (
 )
 import hashlib
 LOG = logging.getLogger(__name__)
-class dream_trainer:
+
+class ft_trainer:
     def __init__(self, config, alg, accelerator, tokenizer, metric, data_info, subject_list, identifier_list):
         self.config = config
         self.alg = alg
@@ -32,13 +33,11 @@ class dream_trainer:
         self.data_info = data_info
         self.subject_list = subject_list
         self.identifier_list = identifier_list
-
         self.prepare_dataset()
 
-    def run_edit(self):
-        self.alg.enable_melo()
+    def run_fine_tune(self):
         for train_dataset, train_dataloader in zip(self.train_dataset_list, self.train_dataloader_list):
-            self.alg.edit(train_dataset, train_dataloader)
+            self.alg.tune(train_dataset, train_dataloader)
         self.alg.save_pipeline()
 
     def prepare_dataset(self):
@@ -46,7 +45,7 @@ class dream_trainer:
         for x in self.subject_list:
             assert x in self.data_info.keys(), f"No instance images of {x}"
             if self.data_info[x]["with_prior"]:
-                class_images_dir = Path(self.config.base_dir, "data/class_datas", self.data_info[x]["class_name"])
+                class_images_dir = Path(self.config.base_dir, "../data/class_datas", self.data_info[x]["class_name"])
                 if not class_images_dir.exists():
                     class_images_dir.mkdir(parents=True)
                 # if not pretrained_cache_dir.exists():
@@ -95,8 +94,8 @@ class dream_trainer:
         self.train_dataset_list = []
         self.train_dataloader_list = []
         for sub, id in zip(self.subject_list, self.identifier_list):
-            class_images_dir = Path(self.config.base_dir, "data/class_datas", self.data_info[sub]["class_name"])
-            instance_data_dir = Path(self.config.base_dir, "data/instances", sub)
+            class_images_dir = Path(self.config.base_dir, "../data/class_datas", self.data_info[sub]["class_name"])
+            instance_data_dir = Path(self.config.base_dir, "../data/instances", sub)
             instance_prompt = " ".join([self.config.instance_prompt, id, sub.replace("_", " ")])
             class_prompt = " ".join([self.config.class_prompt, self.data_info[sub]["class_name"]])
             train_dataset = DreamBoothDataset(
@@ -121,7 +120,6 @@ class dream_trainer:
             )
             self.train_dataset_list.append(train_dataset)
             self.train_dataloader_list.append(train_dataloader)
-
 
 
 

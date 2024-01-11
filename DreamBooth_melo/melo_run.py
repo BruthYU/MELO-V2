@@ -1,13 +1,9 @@
-import logging
 import os
-import hydra
-from omegaconf import OmegaConf,open_dict
 import transformers
 import warnings
 import json
 from accelerate import Accelerator
-from accelerate.utils import ProjectConfiguration, set_seed
-import importlib
+from accelerate.utils import set_seed
 from transformers import AutoTokenizer, PretrainedConfig
 import diffusers
 from diffusers import (
@@ -15,7 +11,7 @@ from diffusers import (
     DDPMScheduler,
     UNet2DConditionModel,
 )
-from melo_trainer import *
+from trainer.melo_trainer import *
 os.environ['http_proxy'] = '127.0.0.1:7890'
 os.environ['https_proxy'] = '127.0.0.1:7890'
 import numpy as np
@@ -150,7 +146,7 @@ def run(config):
     with open(os.path.join(base_dir, "data","data.json"), 'r') as f:
         data_info = json.load(f)
     subject_list = data_info.keys()
-    identifier_list = np.load('./data/rare_tokens/rare_tokens.npy')[:len(subject_list)]
+    identifier_list = np.load(os.path.join(base_dir, "data/rare_tokens/rare_tokens.npy"))[:len(subject_list)]
 
     '''
     Trainer

@@ -1,13 +1,9 @@
-import logging
 import os
-import hydra
-from omegaconf import OmegaConf,open_dict
 import transformers
 import warnings
 import json
 from accelerate import Accelerator
-from accelerate.utils import ProjectConfiguration, set_seed
-import importlib
+from accelerate.utils import set_seed
 from transformers import AutoTokenizer, PretrainedConfig
 import diffusers
 from diffusers import (
@@ -15,7 +11,7 @@ from diffusers import (
     DDPMScheduler,
     UNet2DConditionModel,
 )
-from ft_trainer import *
+from trainer.ft_trainer import *
 os.environ['http_proxy'] = '127.0.0.1:7890'
 os.environ['https_proxy'] = '127.0.0.1:7890'
 import numpy as np
