@@ -1,2 +1,3 @@
 # @package _global_
 alg: melo_diff
+train_text_encoder: true

@@ -19,33 +19,39 @@ from peft import (
     get_peft_model,
     get_peft_model_state_dict,
 )
-from peft.tuners.melo import MeloConfig, LoraLayer
+from peft import LoraConfig
 from diffusers.optimization import get_scheduler
 from tqdm import tqdm
 from diffusers.training_utils import compute_snr
 from diffusers import (
     DiffusionPipeline,
 )
+
 # from models import BertClassifier
 LOG = logging.getLogger(__name__)
 
-def log_validation(
-    text_encoder,
-    tokenizer,
-    unet,
-    vae,
-    args,
-    accelerator,
-    weight_dtype,
-    global_step,
-    instance_prompt
-):
 
+def unwrap_peft(input_model):
+    if input_model.__class__.__name__ == "PeftModel":
+        input_model = input_model.base_model.model
+    return input_model
+
+
+def log_validation(
+        text_encoder,
+        tokenizer,
+        unet,
+        vae,
+        args,
+        accelerator,
+        weight_dtype,
+        global_step,
+        instance_prompt
+):
     LOG.info(
         f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
         f" {args.validation_prompt}."
     )
-
 
     pipeline_args = {}
 
@@ -59,8 +65,8 @@ def log_validation(
     pipeline = DiffusionPipeline.from_pretrained(
         args.pretrained_model_name_or_path,
         tokenizer=tokenizer,
-        text_encoder=text_encoder,
-        unet=unet,
+        text_encoder=unwrap_peft(text_encoder),
+        unet=unwrap_peft(unet),
         revision=args.revision,
         torch_dtype=weight_dtype,
         safety_checker=None,
@@ -83,7 +89,6 @@ def log_validation(
     pipeline.scheduler = scheduler_class.from_config(pipeline.scheduler.config, **scheduler_args)
     pipeline = pipeline.to(accelerator.device)
     pipeline.set_progress_bar_config(disable=True)
-
 
     # Validation Prompt
     instance_prompt = instance_prompt.replace(args.instance_prompt, "").strip()
@@ -109,12 +114,12 @@ def log_validation(
     del pipeline
     torch.cuda.empty_cache()
 
-class FT_DIFF(torch.nn.Module):
+
+class LORA_DIFF(torch.nn.Module):
     def __init__(self, accelerator, tokenizer, noise_scheduler, vae, unet, text_encoder, config):
-        super(FT_DIFF, self).__init__()
+        super(LORA_DIFF, self).__init__()
         self.config = config
         self.accelerator = accelerator
-        self.block_index = 0
         self.tokenizer = tokenizer
 
         '''Get Basic Models
@@ -123,6 +128,42 @@ class FT_DIFF(torch.nn.Module):
         self.vae = vae
         self.unet = unet
         self.text_encoder = text_encoder
+
+
+        '''LoRA Config
+        '''
+        self.unet_lora_config = LoraConfig(
+            r=config.lora.lora_r,
+            lora_alpha=config.lora.lora_alpha,
+            target_modules=list(config.lora.UNET_TARGET_MODULES),
+            lora_dropout=config.lora.lora_dropout,
+            bias=config.lora.lora_bias,
+        )
+        if config.train_text_encoder:
+            self.text_encoder_lora_config = LoraConfig(
+                r=config.lora.lora_text_encoder_r,
+                lora_alpha=config.lora.lora_text_encoder_alpha,
+                target_modules=list(config.lora.TEXT_ENCODER_TARGET_MODULES),
+                lora_dropout=config.lora.lora_text_encoder_dropout,
+                bias=config.lora.lora_text_encoder_bias,
+                )
+
+
+        '''Apply LoRA
+        '''
+        # self.original_model = model
+        # self.model = model
+
+        if not config.check_dir:
+            self.text_encoder = get_peft_model(text_encoder, self.text_encoder_lora_config)
+            self.unet = get_peft_model(unet, self.unet_lora_config)
+        else:
+            save_path = os.path.join(config.base_dir, "checkpoint", config.check_dir)
+            self.load_from_checkpoint(save_path)
+
+        '''
+        Only LoRA modules are marked as trainable (mark_only_lora_as_trainable)
+        '''
         self.train_prepare()
 
     def train_prepare(self):
@@ -175,7 +216,6 @@ class FT_DIFF(torch.nn.Module):
             weight_decay=self.config.adam_weight_decay,
             eps=self.config.adam_epsilon,
         )
-
         overrode_max_train_steps = False
         num_update_steps_per_epoch = math.ceil(len(train_dataloader) / self.config.gradient_accumulation_steps)
         if self.config.max_train_steps is None:
@@ -234,7 +274,8 @@ class FT_DIFF(torch.nn.Module):
                         pixel_values = batch["pixel_values"].to(dtype=self.weight_dtype)
                         if self.vae is not None:
                             # Convert images to latent space
-                            model_input = self.vae.encode(batch["pixel_values"].to(dtype=self.weight_dtype)).latent_dist.sample()
+                            model_input = self.vae.encode(
+                                batch["pixel_values"].to(dtype=self.weight_dtype)).latent_dist.sample()
                             model_input = model_input * self.vae.config.scaling_factor
                         else:
                             model_input = pixel_values
@@ -355,27 +396,18 @@ class FT_DIFF(torch.nn.Module):
                     if global_step >= self.config.max_train_steps:
                         break
 
+
     def save_pipeline(self):
         self.accelerator.wait_for_everyone()
         if self.accelerator.is_main_process:
-            pipeline_args = {}
-            if self.text_encoder is not None:
-                pipeline_args["text_encoder"] = self.accelerator.unwrap_model(self.text_encoder)
-            if self.config.args.skip_save_text_encoder:
-                pipeline_args["text_encoder"] = None
-            pipeline = DiffusionPipeline.from_pretrained(
-                self.config.args.pretrained_model_name_or_path,
-                unet=self.accelerator.unwrap_model(self.unet),
-                revision=self.config.args.revision,
-                **pipeline_args,
+            unwrapped_unet = self.accelerator.unwrap_model(self.unet)
+            unwrapped_unet.save_pretrained(
+                os.path.join(self.config.output_dir, "unet"), state_dict=self.accelerator.get_state_dict(self.unet)
             )
-            # We train on the simplified learning objective. If we were previously predicting a variance, we need the scheduler to ignore it
-            scheduler_args = {}
-            if "variance_type" in pipeline.scheduler.config:
-                variance_type = pipeline.scheduler.config.variance_type
-                if variance_type in ["learned", "learned_range"]:
-                    variance_type = "fixed_small"
-                scheduler_args["variance_type"] = variance_type
-            pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
-            pipeline.save_pretrained(self.config.args.output_dir)
+            if self.config.train_text_encoder:
+                unwrapped_text_encoder = self.accelerator.unwrap_model(self.text_encoder)
+                unwrapped_text_encoder.save_pretrained(
+                    os.path.join(self.config.output_dir, "text_encoder"),
+                    state_dict=self.accelerator.get_state_dict(self.text_encoder)
+                )
             self.accelerator.end_training()

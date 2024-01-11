@@ -68,7 +68,7 @@ def run(config):
     check_config(config)
 
     diff_config_keys = ['class_prompt', 'with_prior_preservation', 'prior_loss_weight', 'learning_rate']
-    melo_config_keys = ['use_lora','UNET_TARGET_MODULES', 'TEXT_ENCODER_TARGET_MODULES']
+    melo_config_keys = ['UNET_TARGET_MODULES', 'TEXT_ENCODER_TARGET_MODULES']
     DIFF_CONFIG = dict(config)
     MELO_CONFIG = dict(config.model)
     for k in diff_config_keys:

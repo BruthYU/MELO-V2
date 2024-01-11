@@ -1,0 +1,3 @@
+# @package _global_
+alg: ft_diff
+train_text_encoder: false

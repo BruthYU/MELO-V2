@@ -14,7 +14,7 @@ num_class_images: 40
 seed: 42
 resolution: 512
 center_crop: false
-train_text_encoder: true
+
 train_batch_size: 1
 sample_batch_size: 4
 num_train_epochs: 1
