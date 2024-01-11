@@ -20,7 +20,8 @@ from diffusers import (
 )
 import hashlib
 LOG = logging.getLogger(__name__)
-class dream_trainer:
+
+class ft_trainer:
     def __init__(self, config, alg, accelerator, tokenizer, metric, data_info, subject_list, identifier_list):
         self.config = config
         self.alg = alg
@@ -32,11 +33,11 @@ class dream_trainer:
         self.data_info = data_info
         self.subject_list = subject_list
         self.identifier_list = identifier_list
+        self.prepare_dataset()
 
-    def run_edit(self):
-        self.alg.enable_melo()
+    def run_fine_tune(self):
         for train_dataset, train_dataloader in zip(self.train_dataset_list, self.train_dataloader_list):
-            self.alg.edit(train_dataset, train_dataloader)
+            self.alg.tune(train_dataset, train_dataloader)
         self.alg.save_pipeline()
 
     def prepare_dataset(self):
@@ -119,7 +120,6 @@ class dream_trainer:
             )
             self.train_dataset_list.append(train_dataset)
             self.train_dataloader_list.append(train_dataloader)
-
 
 
 

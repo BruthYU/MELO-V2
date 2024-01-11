@@ -15,12 +15,11 @@ from diffusers import (
     DDPMScheduler,
     UNet2DConditionModel,
 )
-from melo_trainer import *
+from ft_trainer import *
 os.environ['http_proxy'] = '127.0.0.1:7890'
 os.environ['https_proxy'] = '127.0.0.1:7890'
 import numpy as np
 LOG = logging.getLogger(__name__)
-
 
 
 def check_config(config):
@@ -68,24 +67,12 @@ def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: st
 
 @hydra.main(config_path='config', config_name='config')
 def run(config):
-    LOG.info("*MELO* Dreambooth")
+    LOG.info("*Fine-Tuning* Dreambooth")
     check_config(config)
-
-    diff_config_keys = ['class_prompt', 'with_prior_preservation', 'prior_loss_weight', 'learning_rate']
-    melo_config_keys = ['use_lora','UNET_TARGET_MODULES', 'TEXT_ENCODER_TARGET_MODULES']
-    DIFF_CONFIG = dict(config)
-    MELO_CONFIG = dict(config.model)
-    for k in diff_config_keys:
-        LOG.info(f'[-DIFF CONFIG-]  {k}: {DIFF_CONFIG[k]}')
-    for k in melo_config_keys:
-        LOG.info(f'[-MELO CONFIG-]  {k}: {MELO_CONFIG[k]}')
-
     base_dir = hydra.utils.get_original_cwd()
     with open_dict(config):
         config.base_dir = base_dir
 
-
-        
     accelerator = Accelerator(
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         mixed_precision=config.mixed_precision
@@ -123,7 +110,7 @@ def run(config):
 
     unet = UNet2DConditionModel.from_pretrained(
         config.pretrained_model_name_or_path, subfolder="unet", revision=config.revision)
-    
+
     '''
     Load tokenizer
     '''
@@ -155,14 +142,13 @@ def run(config):
     '''
     Trainer
     '''
-    trainer = dream_trainer(config, alg, accelerator, tokenizer, None, data_info, subject_list, identifier_list)
+    # trainer = dream_trainer(config, alg, accelerator, tokenizer, None, data_info, subject_list, identifier_list)
+    # trainer.prepare_dataset()
+    # torch.cuda.empty_cache()
+    # trainer.run_edit()
 
-    torch.cuda.empty_cache()
-    trainer.run_edit()
 
 
-
-    pass
 
 
 if __name__ == '__main__':
