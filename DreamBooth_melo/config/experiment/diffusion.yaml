@@ -11,7 +11,7 @@ class_prompt: "a photo of"
 with_prior_preservation: false
 prior_loss_weight: 0.1
 num_class_images: 40
-seed: null
+seed: 42
 resolution: 512
 center_crop: false
 train_text_encoder: true

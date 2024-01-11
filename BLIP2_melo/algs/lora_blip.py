@@ -57,6 +57,7 @@ class LORA_BLIP(torch.nn.Module):
             self.load_from_checkpoint(save_path)
 
         self.lora_list = self.named_lora_modules()
+        self.outputs = {}
 
         '''Load Tokenizer
         '''
@@ -83,16 +84,61 @@ class LORA_BLIP(torch.nn.Module):
     def set_lora_mapping(self, lora_block_mapping):
         self.model.reset_dynamic_mapping(lora_block_mapping)
 
-    def edit(self, batch):
+    def edit(self, batch, batch_index):
         # MELO_V2 could automatically identify lora parameters to be optimized
         params_to_optimize = (itertools.chain(self.model.parameters()))
         optimizer = torch.optim.Adam(params_to_optimize, self.config.melo.edit_lr)
         scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.5)
+        pexel_values = batch["image"]
+        input_ids = batch["input_ids"]
+        attention_mask = batch["attention_mask"]
+
+        labels = []
+        temp = input_ids.tolist()
+        for j, iter in enumerate(temp):
+            for k in range(len(iter)):
+                if k < batch["prompts_len"][j]:
+                    iter[k] = -100
+            labels.append(iter)
+        labels = torch.tensor(labels)
+        labels = labels.masked_fill(
+            labels == 1, -100
+        )
 
 
         self.losses = []
         for i in range(self.config.melo.num_iter):
-            pexel_values = batch["image"]
+            outputs = self.model.model(input_ids=input_ids, pixel_values=pexel_values, labels=labels,
+                                       attention_mask=attention_mask)
+
+            loss = outputs.loss
+            loss.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+            scheduler.step()
+            numpy_loss = loss.detach().cpu().numpy()
+            self.losses.append(numpy_loss)
+
+
+            LOG.info(f'Batch output loss in iter {i}: {numpy_loss:.8f},')
+
+        with torch.no_grad():
+            outputs = self.model.model(input_ids=input_ids, pixel_values=pexel_values, labels=labels,
+                                       attention_mask=attention_mask)
+            self.outputs[batch_index] = outputs
+
+
+
+
+
+
+    def get_output(self, batch, lora_block_mapping):
+        # reset batch lora_block_mapping
+        if lora_block_mapping is not None:
+            self.set_lora_mapping(lora_block_mapping)
+
+        if isinstance(batch["image"], torch.Tensor):
+            pixel_values = batch["image"]
             input_ids = batch["input_ids"]
             attention_mask = batch["attention_mask"]
 
@@ -107,31 +153,7 @@ class LORA_BLIP(torch.nn.Module):
             labels = labels.masked_fill(
                 labels == 1, -100
             )
-
-            outputs = self.model.model(input_ids=input_ids, pixel_values=pexel_values, labels=labels,
-                                       attention_mask=attention_mask)
-            loss = outputs.loss
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-            scheduler.step()
-            numpy_loss = loss.detach().cpu().numpy()
-            self.losses.append(numpy_loss)
-            LOG.info(f'batch loss in iter {i}: {numpy_loss:.6f}')
-
-
-
-
-    def get_output(self, batch, lora_block_mapping):
-        # reset batch lora_block_mapping
-        if lora_block_mapping is not None:
-            self.set_lora_mapping(lora_block_mapping)
-
-        if isinstance(batch["image"], torch.Tensor):
-            pixel_values = batch["image"]
-            input_ids = batch["input_ids"]
-            attention_mask = batch["attention_mask"]
-            outputs = self.model.model(input_ids=input_ids, pixel_values=pixel_values, attention_mask=attention_mask)
+            outputs = self.model.model(input_ids=input_ids, pixel_values=pixel_values, attention_mask=attention_mask, labels = labels)
         else:
             input_ids = batch["input_ids"]
             attention_mask = batch["attention_mask"]

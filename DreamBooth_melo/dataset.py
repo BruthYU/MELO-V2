@@ -7,6 +7,72 @@ from PIL.ImageOps import exif_transpose
 from utils import *
 
 
+def prompt_for_generality_test(identifier, subject_name):
+    prompt_list = [
+        'a {0} {1} in the jungle'.format(identifier, subject_name),
+        'a {0} {1} in the snow'.format(identifier, subject_name),
+        'a {0} {1} on the beach'.format(identifier, subject_name),
+        'a {0} {1} on a cobblestone street'.format(identifier, subject_name),
+        'a {0} {1} on top of pink fabric'.format(identifier, subject_name),
+        'a {0} {1} on top of a wooden floor'.format(identifier, subject_name),
+        'a {0} {1} with a city in the background'.format(identifier, subject_name),
+        'a {0} {1} with a mountain in the background'.format(identifier, subject_name),
+        'a {0} {1} with a blue house in the background'.format(identifier, subject_name),
+        'a {0} {1} on top of a purple rug in a forest'.format(identifier, subject_name),
+        'a {0} {1} with a wheat field in the background'.format(identifier, subject_name),
+        'a {0} {1} with a tree and autumn leaves in the background'.format(identifier, subject_name),
+        'a {0} {1} with the Eiffel Tower in the background'.format(identifier, subject_name),
+        'a {0} {1} floating on top of water'.format(identifier, subject_name),
+        'a {0} {1} floating in an ocean of milk'.format(identifier, subject_name),
+        'a {0} {1} on top of green grass with sunflowers around it'.format(identifier, subject_name),
+        'a {0} {1} on top of a mirror'.format(identifier, subject_name),
+        'a {0} {1} on top of the sidewalk in a crowded street'.format(identifier, subject_name),
+        'a {0} {1} on top of a dirt road'.format(identifier, subject_name),
+        'a {0} {1} on top of a white rug'.format(identifier, subject_name),
+        'a red {0} {1}'.format(identifier, subject_name),
+        'a photo of {0} {1} in the Acropolis'.format(identifier, subject_name),
+        'a shiny {0} {1}'.format(identifier, subject_name),
+        'a wet {0} {1}'.format(identifier, subject_name),
+        'a cube shaped {0} {1}'.format(identifier, subject_name)
+    ]
+
+    # Live subject prompt
+    alive_prompt_list = [
+        'a {0} {1} in the jungle'.format(identifier, subject_name),
+        'a {0} {1} in the snow'.format(identifier, subject_name),
+        'a {0} {1} on the beach'.format(identifier, subject_name),
+        'a {0} {1} on a cobblestone street'.format(identifier, subject_name),
+        'a {0} {1} on top of pink fabric'.format(identifier, subject_name),
+        'a {0} {1} on top of a wooden floor'.format(identifier, subject_name),
+        'a {0} {1} with a city in the background'.format(identifier, subject_name),
+        'a {0} {1} with a mountain in the background'.format(identifier, subject_name),
+        'a {0} {1} with a blue house in the background'.format(identifier, subject_name),
+        'a {0} {1} on top of a purple rug in a forest'.format(identifier, subject_name),
+        'a {0} {1} wearing a red hat'.format(identifier, subject_name),
+        'a {0} {1} wearing a santa hat'.format(identifier, subject_name),
+        'a {0} {1} wearing a rainbow scarf'.format(identifier, subject_name),
+        'a {0} {1} wearing a black top hat and a monocle'.format(identifier, subject_name),
+        'a {0} {1} in a chef outfit'.format(identifier, subject_name),
+        'a {0} {1} in a firefighter outfit'.format(identifier, subject_name),
+        'a {0} {1} in a police outfit'.format(identifier, subject_name),
+        'a {0} {1} wearing pink glasses'.format(identifier, subject_name),
+        'a {0} {1} wearing a yellow shirt'.format(identifier, subject_name),
+        'a {0} {1} in a purple wizard outfit'.format(identifier, subject_name),
+        'a red {0} {1}'.format(identifier, subject_name),
+        'a purple {0} {1}'.format(identifier, subject_name),
+        'a shiny {0} {1}'.format(identifier, subject_name),
+        'a wet {0} {1}'.format(identifier, subject_name),
+        'a cube shaped {0} {1}'.format(identifier, subject_name)
+    ]
+    if ('dog' in subject_name or 'cat' in subject_name) and 'backpack' not in subject_name:
+        return alive_prompt_list
+
+    return prompt_list
+
+
+
+
+
 class DreamBoothDataset(Dataset):
     """
     A dataset to prepare the instance and class images with the prompts for fine-tuning the model.

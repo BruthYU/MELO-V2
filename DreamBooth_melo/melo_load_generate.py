@@ -33,8 +33,8 @@ LOG = logging.getLogger(__name__)
 
 os.environ['http_proxy'] = '127.0.0.1:7890'
 os.environ['https_proxy'] = '127.0.0.1:7890'
-identifier_list = ["sks", "Tom's", "Jackie's", "Cunningham‘s", "Lang's"]
-subject_list = ["rc_car", "shiny_sneaker", "cat", "vase", "pink_sunglasses"]
+identifier_list = ["sks", "Tom's"]
+subject_list = ["rc_car", "shiny_sneaker"]
 
 
 def check_config(config):

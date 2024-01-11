@@ -2,7 +2,7 @@
 task: vqa
 melo:
   _name: grace
-  num_iter: 20
+  num_iter: 100
   init_radius: 0.1
   init_vision_radius: 0.5
   dist_fn: euc # euc, mmd, cos
@@ -14,10 +14,10 @@ melo:
   expand_mode: moving_avg # , moving_avg, decay
   num_pert: 8 # only matters when using perturbation training
   key_id: -1
-  num_edit_per_block: 1
-  num_block: 6350
-  num_rank_per_block: 2
-  metric_period: 40
+  num_edit_per_block: 8
+  num_block: 800
+  num_rank_per_block: 8
+  metric_period: 8
   edit_lr: 1e-5
   #edit_lr: 1e-4
 

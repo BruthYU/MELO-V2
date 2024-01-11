@@ -72,23 +72,31 @@ class vqa_trainer:
                 batch_query, batch_query_vision = self.router.batch_embed(batch["edit_inner"])
                 self.router.database_batch_add(batch_query, batch_query_vision)
                 self.alg.set_lora_mapping([i] * len(batch["edit_inner"]["labels"]))
-                self.alg.edit(batch["edit_inner"])
+                self.alg.edit(batch["edit_inner"], i)
                 edit_time = time() - edit_start
                 total_edit_time += edit_time
 
 
                 with torch.no_grad():
-                    if (i > 0 and n_edits % self.config.melo.metric_period == 0) or (i == len(self.eval_loader) - 1):
+                    if (i >= 0 and n_edits % self.config.melo.metric_period == 0) or (i == len(self.eval_loader) - 1):
                         LOG.info(f'-------------------------    Eval all {n_edits} history edits----------------------------------')
                         averager = RunningStatAverager("val")
 
                         for k, eval_batch in enumerate(batch_history):
+                            # LOG.info(f"---[Alg last outputs]----")
+                            # LOG.info(self.alg.outputs[k].logits.shape)
+                            # print(self.alg.outputs[k].logits[:, :, 15])
+
+
                             result = self.metric(self.alg, self.router, eval_batch)
                             # Text locality
                             lora_block_mapping = self.router.get_lora_mapping(eval_batch["loc"])
-
-
                             post_base_outputs = self.alg.get_output(eval_batch["loc"], lora_block_mapping)
+
+
+
+
+
                             if not isinstance(post_base_outputs, torch.Tensor):
                                 post_base_logits = post_base_outputs.logits
                             else:

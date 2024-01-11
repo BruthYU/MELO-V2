@@ -1,8 +1,12 @@
 import clip
 import torch
 from torchvision import transforms
-
 from ldm.models.diffusion.ddim import DDIMSampler
+import os
+from PIL import Image
+from pathlib import Path
+os.environ['http_proxy'] = '127.0.0.1:7890'
+os.environ['https_proxy'] = '127.0.0.1:7890'
 
 
 class CLIPEvaluator(object):
@@ -25,8 +29,9 @@ class CLIPEvaluator(object):
         return self.model.encode_text(tokens)
 
     @torch.no_grad()
-    def encode_images(self, images: torch.Tensor) -> torch.Tensor:
-        images = self.preprocess(images).to(self.device)
+    def encode_images(self, images: list) -> torch.Tensor:
+        images = [self.clip_preprocess(x).to(self.device) for x in images]
+        images = torch.stack(images)
         return self.model.encode_image(images)
 
     def get_text_features(self, text: str, norm: bool = True) -> torch.Tensor:
@@ -51,6 +56,8 @@ class CLIPEvaluator(object):
     def img_to_img_similarity(self, src_images, generated_images):
         src_img_features = self.get_image_features(src_images)
         gen_img_features = self.get_image_features(generated_images)
+
+        matix = src_img_features @ gen_img_features.T
 
         return (src_img_features @ gen_img_features.T).mean()
 
@@ -111,3 +118,24 @@ class ImageDirEvaluator(CLIPEvaluator):
         sim_samples_to_text = self.txt_to_img_similarity(target_text.replace("*", ""), gen_samples)
 
         return sim_samples_to_img, sim_samples_to_text
+
+
+if __name__ == '__main__':
+    dir_evaluator = ImageDirEvaluator('cuda')
+    src_dir = '/home/yu/ECNU/MELO-V2/DreamBooth_melo/data/instances/cat'
+    gen_dir = '/home/yu/ECNU/MELO-V2/DreamBooth_melo/outputs/cat_gen'
+
+    src_img_path_list = list(Path(src_dir).iterdir())
+    src_img_list = [Image.open(x) for x in src_img_path_list]
+
+
+    gen_img_path_list = list(Path(gen_dir).iterdir())
+    gen_img_list = [Image.open(x) for x in gen_img_path_list]
+
+
+    sim = dir_evaluator.img_to_img_similarity(src_img_list, gen_img_list)
+    print(sim)
+
+
+
+

@@ -37,26 +37,37 @@ def prepare_multimodal_edit(hparams,
 
 def compute_multimodal_edit_quality(alg, router, batch):
     lora_block_mapping = router.get_lora_mapping(batch)
-    # acc_count = [1 if x == batch_index else 0 for x in lora_block_mapping]
-    # num_edit = len(batch["labels"])
-    # LOG.info(f"Hit rate: {sum(acc_count) / num_edit}:.3f")
-    # lora_block_mapping = [batch_index] * num_edit
 
 
     '''Inference'''
     with torch.no_grad():
         outputs = alg.get_output(batch, lora_block_mapping)
+
+
+        # LOG.info(f"---[Metric outputs]----")
+        # LOG.info(outputs.logits.shape)
+        # print(outputs.logits[:, :, 15])
+
         if isinstance(outputs, torch.Tensor):
             logits = outputs.detach().cpu()
         else:
             logits = outputs.logits.detach().cpu()
         targ = batch["labels"].cpu()
+
+
+
+
+
     if logits.dim() == 3:
         logits = logits[:, :-1]
         logits = logits[:, -targ.shape[1]:]
     mask = targ != 1
     targ[~mask] = 0
     pred_ids = logits.argmax(-1).masked_fill(~mask, 0).detach().cpu()
+
+    print(pred_ids)
+    print(targ)
+
     correct = pred_ids == targ
     correct = correct & mask
     num_non_padding = mask.sum().float().item()

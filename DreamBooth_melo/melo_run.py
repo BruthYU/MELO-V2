@@ -18,13 +18,11 @@ from diffusers import (
 from trainer import *
 os.environ['http_proxy'] = '127.0.0.1:7890'
 os.environ['https_proxy'] = '127.0.0.1:7890'
+import numpy as np
 LOG = logging.getLogger(__name__)
 
-identifier_list = ["sks", "Tom's", "Jackie's", "Cunningham‘s", "Lang's"]
-subject_list = ["rc_car", "shiny_sneaker", "cat", "vase", "pink_sunglasses"]
 
-# identifier_list = ["sks", "Tom's"]
-# subject_list = ["rc_car", "shiny_sneaker"]
+
 def check_config(config):
     base_dir = hydra.utils.get_original_cwd()
     config.instance_data_dir = os.path.join(base_dir, config.instance_data_dir)
@@ -84,8 +82,7 @@ def run(config):
     with open_dict(config):
         config.base_dir = base_dir
 
-    with open(os.path.join(base_dir, "data","data.json"), 'r') as f:
-        data_info = json.load(f)
+
         
     accelerator = Accelerator(
         gradient_accumulation_steps=config.gradient_accumulation_steps,
@@ -148,6 +145,12 @@ def run(config):
     '''
     Trainer
     '''
+    with open(os.path.join(base_dir, "data","data.json"), 'r') as f:
+        data_info = json.load(f)
+    subject_list = data_info.keys()
+    identifier_list = np.load('./data/rare_tokens/rare_tokens.npy')[:len(subject_list)]
+
+
     trainer = dream_trainer(config, alg, accelerator, tokenizer, None, data_info, subject_list, identifier_list)
     trainer.prepare_dataset()
     torch.cuda.empty_cache()

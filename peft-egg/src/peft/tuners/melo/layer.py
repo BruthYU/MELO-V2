@@ -51,6 +51,7 @@ class Dynamic(nn.Module):
 
 
 
+
     def forward(self, inputs):
         # LOG.info(f"self.LORA_BLOCK_MAPPING: {self.LORA_BLOCK_MAPPING}")
         # LOG.info(f"self.num_rank_per_block: {self.num_rank_per_block}")
