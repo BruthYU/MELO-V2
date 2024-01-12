@@ -355,26 +355,43 @@ class FT_DIFF(torch.nn.Module):
                     if global_step >= self.config.max_train_steps:
                         break
 
+    # def save_pipeline(self):
+    #     self.accelerator.wait_for_everyone()
+    #     output_dir = self.config.output_dir
+    #     if self.accelerator.is_main_process:
+    #         pipeline_args = {}
+    #         if self.text_encoder is not None and self.config.train_text_encoder:
+    #             pipeline_args["text_encoder"] = self.accelerator.unwrap_model(self.text_encoder)
+    #
+    #         pipeline = DiffusionPipeline.from_pretrained(
+    #             self.config.pretrained_model_name_or_path,
+    #             unet=self.accelerator.unwrap_model(self.unet),
+    #             revision=self.config.revision,
+    #             **pipeline_args,
+    #         )
+    #         # We train on the simplified learning objective. If we were previously predicting a variance, we need the scheduler to ignore it
+    #         scheduler_args = {}
+    #         if "variance_type" in pipeline.scheduler.config:
+    #             variance_type = pipeline.scheduler.config.variance_type
+    #             if variance_type in ["learned", "learned_range"]:
+    #                 variance_type = "fixed_small"
+    #             scheduler_args["variance_type"] = variance_type
+    #         pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
+    #         pipeline.save_pretrained(output_dir)
+    #         self.accelerator.end_training()
+
     def save_pipeline(self):
         self.accelerator.wait_for_everyone()
+        output_dir = self.config.output_dir
         if self.accelerator.is_main_process:
-            pipeline_args = {}
-            if self.text_encoder is not None and self.config.train_text_encoder:
-                pipeline_args["text_encoder"] = self.accelerator.unwrap_model(self.text_encoder)
-
-            pipeline = DiffusionPipeline.from_pretrained(
-                self.config.args.pretrained_model_name_or_path,
-                unet=self.accelerator.unwrap_model(self.unet),
-                revision=self.config.args.revision,
-                **pipeline_args,
+            unwrapped_unet = self.accelerator.unwrap_model(self.unet)
+            unwrapped_unet.save_pretrained(
+                os.path.join(output_dir, "unet"), state_dict=self.accelerator.get_state_dict(self.unet)
             )
-            # We train on the simplified learning objective. If we were previously predicting a variance, we need the scheduler to ignore it
-            scheduler_args = {}
-            if "variance_type" in pipeline.scheduler.config:
-                variance_type = pipeline.scheduler.config.variance_type
-                if variance_type in ["learned", "learned_range"]:
-                    variance_type = "fixed_small"
-                scheduler_args["variance_type"] = variance_type
-            pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
-            pipeline.save_pretrained(self.config.output_dir)
+            if self.config.train_text_encoder:
+                unwrapped_text_encoder = self.accelerator.unwrap_model(self.text_encoder)
+                unwrapped_text_encoder.save_pretrained(
+                    os.path.join(output_dir, "text_encoder"),
+                    state_dict=self.accelerator.get_state_dict(self.text_encoder)
+                )
             self.accelerator.end_training()

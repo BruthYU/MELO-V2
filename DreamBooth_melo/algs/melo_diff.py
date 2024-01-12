@@ -439,15 +439,16 @@ class MELO_DIFF(torch.nn.Module):
 
     def save_pipeline(self):
         self.accelerator.wait_for_everyone()
+        output_dir = self.config.output_dir
         if self.accelerator.is_main_process:
             unwrapped_unet = self.accelerator.unwrap_model(self.unet)
             unwrapped_unet.save_pretrained(
-                os.path.join(self.config.output_dir, "unet"), state_dict= self.accelerator.get_state_dict(self.unet)
+                os.path.join(output_dir, "unet"), state_dict= self.accelerator.get_state_dict(self.unet)
             )
             if self.config.train_text_encoder:
                 unwrapped_text_encoder = self.accelerator.unwrap_model(self.text_encoder)
                 unwrapped_text_encoder.save_pretrained(
-                    os.path.join(self.config.output_dir, "text_encoder"),
+                    os.path.join(output_dir, "text_encoder"),
                     state_dict=self.accelerator.get_state_dict(self.text_encoder)
                 )
             self.accelerator.end_training()

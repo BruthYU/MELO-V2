@@ -21,7 +21,6 @@ LOG = logging.getLogger(__name__)
 
 def check_config(config):
     base_dir = hydra.utils.get_original_cwd()
-    config.instance_data_dir = os.path.join(base_dir, config.instance_data_dir)
     config.class_data_dir = os.path.join(base_dir, config.class_data_dir)
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != config.local_rank:

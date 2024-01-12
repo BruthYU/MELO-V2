@@ -56,26 +56,7 @@ def uuid(digits=4):
 OmegaConf.register_new_resolver("uuid", lambda: uuid())
 LOG = logging.getLogger(__name__)
 
-def check_config(config):
-    base_dir = hydra.utils.get_original_cwd()
-    config.instance_data_dir = os.path.join(base_dir, config.instance_data_dir)
-    config.class_data_dir = os.path.join(base_dir, config.class_data_dir)
-    env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
-    if env_local_rank != -1 and env_local_rank != config.local_rank:
-        config.local_rank = env_local_rank
-    if config.with_prior_preservation:
-        if config.class_data_dir is None:
-            raise ValueError("You must specify a data directory for class images.")
-        if config.class_prompt is None:
-            raise ValueError("You must specify prompt for class images.")
-    else:
-        if config.class_data_dir is not None:
-            warnings.warn("You need not use --class_data_dir without --with_prior_preservation.")
-        if config.class_prompt is not None:
-            warnings.warn("You need not use --class_prompt without --with_prior_preservation.")
-    if config.train_text_encoder and config.pre_compute_text_embeddings:
-        raise ValueError("`--train_text_encoder` cannot be used with `--pre_compute_text_embeddings`")
-# Dataset and DataLoaders creation:
+
 
 def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: str, revision: str):
     text_encoder_config = PretrainedConfig.from_pretrained(
@@ -117,10 +98,7 @@ def log_validation(
     subject_list,
 ):
 
-    LOG.info(
-        f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
-        f" {args.validation_prompt}."
-    )
+
 
 
     pipeline_args = {}
@@ -164,13 +142,17 @@ def log_validation(
     pipeline = pipeline.to(device)
     pipeline.set_progress_bar_config(disable=True)
 
-    for idx, (sub, iden) in enumerate(zip(subject_list, identifier_list)):
-        instance_name = sub.replacec("_"," ")
+    for sub, iden in zip(subject_list, identifier_list):
+        instance_name = sub.replace("_"," ")
         generality_prompt_list = prompt_for_generality_test(iden, instance_name)
-        for prompt in generality_prompt_list:
+        for idx, prompt in enumerate(generality_prompt_list):
             pipeline_args = {"prompt": prompt}
 
             # run inference
+            LOG.info(
+                f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
+                f" {prompt}."
+            )
             generator = None if args.seed is None else torch.Generator(device=device).manual_seed(args.seed)
             images = []
             if args.validation_images is None:
@@ -184,9 +166,9 @@ def log_validation(
                     image = pipeline(**pipeline_args, image=image, generator=generator).images[0]
                     images.append(image)
 
-            folder = f"generality/{sub}/prompt_id_{idx}"
+            folder = f"./generality/{sub}/prompt_id_{idx}"
             if not os.path.exists(folder):
-                os.mkdir(folder)
+                os.makedirs(folder)
             for i, img in enumerate(images):
                 img.save(os.path.join(folder, f'{i}.jpg'))
 
@@ -203,7 +185,6 @@ def run(config):
     base_dir = hydra.utils.get_original_cwd()
     device = torch.device('cuda')
     checkpoint_dir = os.path.join(base_dir,"eval/checkpoint/LoRA/text-inversion-model-1")
-    check_config(config)
 
 
     # import correct text encoder class
@@ -255,7 +236,7 @@ def run(config):
 
     with open(os.path.join(base_dir, "data", "data.json"), 'r') as f:
         data_info = json.load(f)
-    subject_list = data_info.keys()
+    subject_list = list(data_info.keys())[-2:]
     identifier_list = np.load(os.path.join(base_dir, "data/rare_tokens/rare_tokens.npy"))[:len(subject_list)]
 
     log_validation(
@@ -266,7 +247,8 @@ def run(config):
         config,
         device,
         weight_dtype,
-        "eval"
+        identifier_list,
+        subject_list
     )
     LOG.info("Peft-backened Dreambooth Evaluation Finishd")
 

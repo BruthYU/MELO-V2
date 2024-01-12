@@ -9,7 +9,7 @@ from utils import *
 
 def prompt_for_generality_test(identifier, subject_name):
     prompt_list = [
-        'a {0} {1} in the jungle'.format(identifier, subject_name),
+        'a photo of {0} {1} in the jungle'.format(identifier, subject_name),
         'a {0} {1} in the snow'.format(identifier, subject_name),
         'a {0} {1} on the beach'.format(identifier, subject_name),
         'a {0} {1} on a cobblestone street'.format(identifier, subject_name),
@@ -27,13 +27,13 @@ def prompt_for_generality_test(identifier, subject_name):
         'a {0} {1} on top of green grass with sunflowers around it'.format(identifier, subject_name),
         'a {0} {1} on top of a mirror'.format(identifier, subject_name),
         'a {0} {1} on top of the sidewalk in a crowded street'.format(identifier, subject_name),
-        'a {0} {1} on top of a dirt road'.format(identifier, subject_name),
-        'a {0} {1} on top of a white rug'.format(identifier, subject_name),
-        'a red {0} {1}'.format(identifier, subject_name),
+        'a photo of {0} {1} on top of a dirt road'.format(identifier, subject_name),
+        'a photo of {0} {1} on top of a white rug'.format(identifier, subject_name),
+        'a photo of red {0} {1}'.format(identifier, subject_name),
         'a photo of {0} {1} in the Acropolis'.format(identifier, subject_name),
-        'a shiny {0} {1}'.format(identifier, subject_name),
-        'a wet {0} {1}'.format(identifier, subject_name),
-        'a cube shaped {0} {1}'.format(identifier, subject_name)
+        'a photo of shiny {0} {1}'.format(identifier, subject_name),
+        'a photo of wet {0} {1}'.format(identifier, subject_name),
+        'a photo of cube shaped {0} {1}'.format(identifier, subject_name)
     ]
 
     # Live subject prompt

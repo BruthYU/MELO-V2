@@ -4,7 +4,6 @@ pretrained_model_name_or_path: "CompVis/stable-diffusion-v1-4"
 pretrained_cache_dir: "pretrained_stable_diffusion"
 revision: null
 tokenizer_name: null
-instance_data_dir: "dog/datasets--diffusers--dog-example/blobs"
 class_data_dir: "class_data"
 instance_prompt: "a photo of"
 class_prompt: "a photo of"
@@ -17,7 +16,7 @@ center_crop: false
 train_batch_size: 1
 sample_batch_size: 4
 num_train_epochs: 1
-max_train_steps: 1200
+max_train_steps: 800
 checkpoints_total_limit: null
 resume_from_checkpoint: null
 gradient_accumulation_steps: 1
@@ -39,7 +38,7 @@ hub_token: null
 hub_model_id: null
 allow_tf32: true
 num_validation_images: 4
-validation_steps: 1200
+validation_steps: 800
 mixed_precision: null
 prior_generation_precision: null
 local_rank: -1
@@ -55,9 +54,10 @@ validation_images: null
 class_labels_conditioning: false
 validation_scheduler: DPMSolverMultistepScheduler
 name: null
-output_dir: text-inversion-model-1
+output_dir: text-inversion-model
 num_dataloader_workers: 1
 no_trace_malloc: false
 check_dir: null
+checkpoint_step: 400
 
 
