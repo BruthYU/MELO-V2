@@ -132,16 +132,16 @@ def run(config):
     '''
     with open(os.path.join(base_dir, "data","data.json"), 'r') as f:
         data_info = json.load(f)
-    subject_list = data_info.keys()
-    identifier_list = np.load('./data/rare_tokens/rare_tokens.npy')[:len(subject_list)]
+    subject_list = list(data_info.keys())[:5]
+    identifier_list = np.load(os.path.join(base_dir,'data/rare_tokens/rare_tokens.npy'))[:len(subject_list)]
 
     '''
     Trainer
     '''
-    # trainer = dream_trainer(config, alg, accelerator, tokenizer, None, data_info, subject_list, identifier_list)
-    # trainer.prepare_dataset()
-    # torch.cuda.empty_cache()
-    # trainer.run_edit()
+    trainer = ft_trainer(config, alg, accelerator, tokenizer, None, data_info, subject_list, identifier_list)
+    trainer.prepare_dataset()
+    torch.cuda.empty_cache()
+    trainer.run_fine_tune()
 
 
 

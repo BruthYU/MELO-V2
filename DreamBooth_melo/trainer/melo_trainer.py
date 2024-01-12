@@ -11,7 +11,6 @@ from utils import *
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import pickle
-import models
 from dataset import *
 from pathlib import Path
 from diffusers import (
@@ -95,8 +94,8 @@ class dream_trainer:
         self.train_dataset_list = []
         self.train_dataloader_list = []
         for sub, id in zip(self.subject_list, self.identifier_list):
-            class_images_dir = Path(self.config.base_dir, "../data/class_datas", self.data_info[sub]["class_name"])
-            instance_data_dir = Path(self.config.base_dir, "../data/instances", sub)
+            class_images_dir = Path(self.config.base_dir, "data/class_datas", self.data_info[sub]["class_name"])
+            instance_data_dir = Path(self.config.base_dir, "data/instances", sub)
             instance_prompt = " ".join([self.config.instance_prompt, id, sub.replace("_", " ")])
             class_prompt = " ".join([self.config.class_prompt, self.data_info[sub]["class_name"]])
             train_dataset = DreamBoothDataset(

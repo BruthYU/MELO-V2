@@ -1,6 +1,8 @@
 # @package _global_
 alg: lora_diff
 train_text_encoder: true
+learning_rate: 2e-5
+validation_prompt: "a photo of {} in the Acropolis"
 lora:
   use_lora: true
   lora_r: 16

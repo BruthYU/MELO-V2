@@ -359,10 +359,9 @@ class FT_DIFF(torch.nn.Module):
         self.accelerator.wait_for_everyone()
         if self.accelerator.is_main_process:
             pipeline_args = {}
-            if self.text_encoder is not None:
+            if self.text_encoder is not None and self.config.train_text_encoder:
                 pipeline_args["text_encoder"] = self.accelerator.unwrap_model(self.text_encoder)
-            if self.config.args.skip_save_text_encoder:
-                pipeline_args["text_encoder"] = None
+
             pipeline = DiffusionPipeline.from_pretrained(
                 self.config.args.pretrained_model_name_or_path,
                 unet=self.accelerator.unwrap_model(self.unet),
@@ -377,5 +376,5 @@ class FT_DIFF(torch.nn.Module):
                     variance_type = "fixed_small"
                 scheduler_args["variance_type"] = variance_type
             pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
-            pipeline.save_pretrained(self.config.args.output_dir)
+            pipeline.save_pretrained(self.config.output_dir)
             self.accelerator.end_training()

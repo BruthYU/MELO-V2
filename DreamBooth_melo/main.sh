@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=3 python ft_run.py +algs=ft_diff +experiment=diffusion +model=dreambooth

@@ -11,7 +11,6 @@ from utils import *
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 import pickle
-import models
 from dataset import *
 from pathlib import Path
 from diffusers import (
@@ -45,7 +44,7 @@ class ft_trainer:
         for x in self.subject_list:
             assert x in self.data_info.keys(), f"No instance images of {x}"
             if self.data_info[x]["with_prior"]:
-                class_images_dir = Path(self.config.base_dir, "../data/class_datas", self.data_info[x]["class_name"])
+                class_images_dir = Path(self.config.base_dir, "data/class_datas", self.data_info[x]["class_name"])
                 if not class_images_dir.exists():
                     class_images_dir.mkdir(parents=True)
                 # if not pretrained_cache_dir.exists():
@@ -94,8 +93,8 @@ class ft_trainer:
         self.train_dataset_list = []
         self.train_dataloader_list = []
         for sub, id in zip(self.subject_list, self.identifier_list):
-            class_images_dir = Path(self.config.base_dir, "../data/class_datas", self.data_info[sub]["class_name"])
-            instance_data_dir = Path(self.config.base_dir, "../data/instances", sub)
+            class_images_dir = Path(self.config.base_dir, "data/class_datas", self.data_info[sub]["class_name"])
+            instance_data_dir = Path(self.config.base_dir, "data/instances", sub)
             instance_prompt = " ".join([self.config.instance_prompt, id, sub.replace("_", " ")])
             class_prompt = " ".join([self.config.class_prompt, self.data_info[sub]["class_name"]])
             train_dataset = DreamBoothDataset(

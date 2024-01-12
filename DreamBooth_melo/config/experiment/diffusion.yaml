@@ -11,19 +11,17 @@ class_prompt: "a photo of"
 with_prior_preservation: false
 prior_loss_weight: 0.1
 num_class_images: 40
-seed: 42
+seed: null
 resolution: 512
 center_crop: false
-
 train_batch_size: 1
 sample_batch_size: 4
 num_train_epochs: 1
-max_train_steps: 400
+max_train_steps: 1200
 checkpoints_total_limit: null
 resume_from_checkpoint: null
 gradient_accumulation_steps: 1
 gradient_checkpointing: false
-learning_rate: 1e-5
 scale_lr: false
 lr_scheduler: constant
 lr_warmup_steps: 0
@@ -40,9 +38,8 @@ push_to_hub: false
 hub_token: null
 hub_model_id: null
 allow_tf32: true
-validation_prompt: "a photo of {} in the Acropolis"
 num_validation_images: 4
-validation_steps: 800
+validation_steps: 1200
 mixed_precision: null
 prior_generation_precision: null
 local_rank: -1
@@ -58,7 +55,7 @@ validation_images: null
 class_labels_conditioning: false
 validation_scheduler: DPMSolverMultistepScheduler
 name: null
-output_dir: text-inversion-model
+output_dir: text-inversion-model-1
 num_dataloader_workers: 1
 no_trace_malloc: false
 check_dir: null
