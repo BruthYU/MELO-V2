@@ -173,7 +173,7 @@ def run(config):
     LOG.info("*FT* Load & Evaluation")
     base_dir = hydra.utils.get_original_cwd()
     device = torch.device('cuda')
-    checkpoint_dir = os.path.join(base_dir,"eval/checkpoint/FT/text-inversion-model-1")
+    checkpoint_dir = os.path.join(base_dir,"eval/checkpoint/FT/text-inversion-model")
 
 
     # import correct text encoder class
@@ -182,7 +182,7 @@ def run(config):
     # Load scheduler and models
     noise_scheduler = DDPMScheduler.from_pretrained(config.pretrained_model_name_or_path, subfolder="scheduler")
     text_encoder = text_encoder_cls.from_pretrained(
-        checkpoint_dir, subfolder="text_encoder", revision=config.revision)
+        config.pretrained_model_name_or_path, subfolder="text_encoder", revision=config.revision)
 
 
 
@@ -226,7 +226,7 @@ def run(config):
 
     with open(os.path.join(base_dir, "data", "data.json"), 'r') as f:
         data_info = json.load(f)
-    subject_list = list(data_info.keys())[-2:]
+    subject_list = list(data_info.keys())
     identifier_list = np.load(os.path.join(base_dir, "data/rare_tokens/rare_tokens.npy"))[:len(subject_list)]
 
     log_validation(

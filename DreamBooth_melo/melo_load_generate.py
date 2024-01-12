@@ -233,7 +233,7 @@ def run(config):
 
     with open(os.path.join(base_dir, "data", "data.json"), 'r') as f:
         data_info = json.load(f)
-    subject_list = list(data_info.keys())[:5]
+    subject_list = list(data_info.keys())
     identifier_list = np.load(os.path.join(base_dir, "data/rare_tokens/rare_tokens.npy"))[:len(subject_list)]
 
     log_validation(
