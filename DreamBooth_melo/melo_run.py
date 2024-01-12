@@ -21,7 +21,6 @@ LOG = logging.getLogger(__name__)
 
 def check_config(config):
     base_dir = hydra.utils.get_original_cwd()
-    config.instance_data_dir = os.path.join(base_dir, config.instance_data_dir)
     config.class_data_dir = os.path.join(base_dir, config.class_data_dir)
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != config.local_rank:
@@ -145,14 +144,14 @@ def run(config):
     '''
     with open(os.path.join(base_dir, "data","data.json"), 'r') as f:
         data_info = json.load(f)
-    subject_list = data_info.keys()
+    #subject_list = data_info.keys()
+    subject_list = list(data_info.keys())[:5]
     identifier_list = np.load(os.path.join(base_dir, "data/rare_tokens/rare_tokens.npy"))[:len(subject_list)]
 
     '''
     Trainer
     '''
     trainer = dream_trainer(config, alg, accelerator, tokenizer, None, data_info, subject_list, identifier_list)
-
     torch.cuda.empty_cache()
     trainer.run_edit()
 
