@@ -1,25 +1,32 @@
-from typing import List
-from omegaconf import OmegaConf
-import torch
-import copy
-import transformers
 import logging
+from time import time
 import os
-import math
-import itertools
-from torch.nn import Parameter
-import importlib
-from utils import *
-from PIL import Image
-import warnings
 import hydra
-from peft import (
-    PeftModel,
-    prepare_model_for_int8_training,
-    get_peft_model,
-    get_peft_model_state_dict,
-)
+import logging
+import struct
+from omegaconf import OmegaConf,open_dict
+from pathlib import Path
+import numpy as np
+import torch
+import torch.nn.functional as F
+import torch.utils.checkpoint
+import transformers
+import warnings
+from accelerate import Accelerator
+# from accelerate.logging import get_logger
+from accelerate.utils import ProjectConfiguration, set_seed
+from huggingface_hub import create_repo, model_info, upload_folder
+from packaging import version
+import hashlib
+import itertools
+import math
+import importlib
+import shutil
+import copy
+from torch.utils.data import Dataset
+from tqdm.auto import tqdm
 from transformers import AutoTokenizer, PretrainedConfig
+import diffusers
 from diffusers import (
     AutoencoderKL,
     DDPMScheduler,
@@ -27,15 +34,27 @@ from diffusers import (
     StableDiffusionPipeline,
     UNet2DConditionModel,
 )
-# from models import BertClassifier
-LOG = logging.getLogger(__name__)
-
-
+from diffusers.optimization import get_scheduler
+from diffusers.training_utils import compute_snr
+from diffusers.utils import check_min_version, is_wandb_available
+from diffusers.utils.import_utils import is_xformers_available
+from dataset import *
+from peft import LoraConfig, get_peft_model, PeftModel
+import json
 os.environ['http_proxy'] = '127.0.0.1:7890'
 os.environ['https_proxy'] = '127.0.0.1:7890'
-identifier_list = ["sks", "Tom's"]
-subject_list = ["rc_car", "shiny_sneaker"]
+from typing import *
 
+def uuid(digits=4):
+    if not hasattr(uuid, "uuid_value"):
+        uuid.uuid_value = struct.unpack('I', os.urandom(4))[0] % int(10 ** digits)
+
+    return uuid.uuid_value
+
+
+
+OmegaConf.register_new_resolver("uuid", lambda: uuid())
+LOG = logging.getLogger(__name__)
 
 def check_config(config):
     base_dir = hydra.utils.get_original_cwd()
@@ -56,7 +75,7 @@ def check_config(config):
             warnings.warn("You need not use --class_prompt without --with_prior_preservation.")
     if config.train_text_encoder and config.pre_compute_text_embeddings:
         raise ValueError("`--train_text_encoder` cannot be used with `--pre_compute_text_embeddings`")
-
+# Dataset and DataLoaders creation:
 
 def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: str, revision: str):
     text_encoder_config = PretrainedConfig.from_pretrained(
@@ -81,13 +100,10 @@ def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: st
     else:
         raise ValueError(f"{model_class} is not supported.")
 
-
 def unwrap_peft(input_model):
     if input_model.__class__.__name__ == "PeftModel":
         input_model = input_model.base_model.model
     return input_model
-
-
 
 def log_validation(
     text_encoder,
@@ -97,83 +113,96 @@ def log_validation(
     args,
     device,
     weight_dtype,
+    identifier_list,
+    subject_list,
 ):
 
     LOG.info(
-        f"[Running validation]"
+        f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
+        f" {args.validation_prompt}."
     )
+
 
     pipeline_args = {}
 
     if vae is not None:
         pipeline_args["vae"] = vae
 
-    for idx, (identifier, subject) in enumerate(zip(identifier_list, subject_list)):
+    if text_encoder is not None:
+        text_encoder = unwrap_peft(text_encoder)
 
-        unet.reset_dynamic_mapping([idx])
-        text_encoder.reset_dynamic_mapping([idx])
+    if unet is not None:
+        unet = unwrap_peft(unet)
 
-        # create pipeline (note: lora_mapping in unet and text_encoder)
-        pipeline = DiffusionPipeline.from_pretrained(
-            args.pretrained_model_name_or_path,
-            tokenizer=tokenizer,
-            text_encoder=unwrap_peft(text_encoder),
-            unet=unwrap_peft(unet),
-            revision=args.revision,
-            torch_dtype=weight_dtype,
-            safety_checker=None,
-            **pipeline_args,
-        )
 
-        scheduler_args = {}
+    # create pipeline (note: unet and vae are loaded again in float32)
+    pipeline = DiffusionPipeline.from_pretrained(
+        args.pretrained_model_name_or_path,
+        tokenizer=tokenizer,
+        text_encoder=text_encoder,
+        unet=unet,
+        revision=args.revision,
+        torch_dtype=weight_dtype,
+        safety_checker=None,
+        **pipeline_args,
+    )
 
-        if "variance_type" in pipeline.scheduler.config:
-            variance_type = pipeline.scheduler.config.variance_type
+    # We train on the simplified learning objective. If we were previously predicting a variance, we need the scheduler to ignore it
+    scheduler_args = {}
 
-            if variance_type in ["learned", "learned_range"]:
-                variance_type = "fixed_small"
+    if "variance_type" in pipeline.scheduler.config:
+        variance_type = pipeline.scheduler.config.variance_type
 
-            scheduler_args["variance_type"] = variance_type
+        if variance_type in ["learned", "learned_range"]:
+            variance_type = "fixed_small"
 
-        module = importlib.import_module("diffusers")
-        scheduler_class = getattr(module, args.validation_scheduler)
-        pipeline.scheduler = scheduler_class.from_config(pipeline.scheduler.config, **scheduler_args)
-        pipeline = pipeline.to(device)
-        pipeline.set_progress_bar_config(disable=True)
+        scheduler_args["variance_type"] = variance_type
 
-        subject = subject.replace("_", " ")
-        instance_prompt = " ".join([identifier, subject])
-        LOG.info(f"Generating {args.num_validation_images} images with prompt: "
-                 f"{args.validation_prompt.format(instance_prompt)}.")
+    module = importlib.import_module("diffusers")
+    scheduler_class = getattr(module, args.validation_scheduler)
+    pipeline.scheduler = scheduler_class.from_config(pipeline.scheduler.config, **scheduler_args)
+    pipeline = pipeline.to(device)
+    pipeline.set_progress_bar_config(disable=True)
 
-        pipeline_args = {"prompt": args.validation_prompt.format(instance_prompt)}
+    for idx, (sub, iden) in enumerate(zip(subject_list, identifier_list)):
+        instance_name = sub.replacec("_"," ")
+        generality_prompt_list = prompt_for_generality_test(iden, instance_name)
+        for prompt in generality_prompt_list:
+            pipeline_args = {"prompt": prompt}
 
-        # run inference
-        generator = None if args.seed is None else torch.Generator(device=device).manual_seed(args.seed)
-        images = []
-        if args.validation_images is None:
-            for _ in range(args.num_validation_images):
-                with torch.autocast("cuda"):
-                    image = pipeline(**pipeline_args, num_inference_steps=25, generator=generator).images[0]
-                images.append(image)
-        else:
-            for image in args.validation_images:
-                image = Image.open(image)
-                image = pipeline(**pipeline_args, image=image, generator=generator).images[0]
-                images.append(image)
+            # run inference
+            generator = None if args.seed is None else torch.Generator(device=device).manual_seed(args.seed)
+            images = []
+            if args.validation_images is None:
+                for _ in range(args.num_validation_images):
+                    with torch.autocast("cuda"):
+                        image = pipeline(**pipeline_args, num_inference_steps=25, generator=generator).images[0]
+                    images.append(image)
+            else:
+                for image in args.validation_images:
+                    image = Image.open(image)
+                    image = pipeline(**pipeline_args, image=image, generator=generator).images[0]
+                    images.append(image)
 
-        for img_idx, img in enumerate(images):
-            img.save(f'eval_{instance_prompt.replace(" ","_")}_{img_idx}.jpg')
+            folder = f"generality/{sub}/prompt_id_{idx}"
+            if not os.path.exists(folder):
+                os.mkdir(folder)
+            for i, img in enumerate(images):
+                img.save(os.path.join(folder, f'{i}.jpg'))
 
     del pipeline
     torch.cuda.empty_cache()
 
 
-@hydra.main(config_path='../config', config_name='config')
+
+
+
+@hydra.main(config_path='config', config_name='config')
 def run(config):
+    LOG.info("*LoRA* Load & Evaluation")
     base_dir = hydra.utils.get_original_cwd()
     device = torch.device('cuda')
-    checkpoint_dir = os.path.join(base_dir, "../outputs/2023-12-28_09-39-20/text-inversion-model")
+    checkpoint_dir = os.path.join(base_dir,"eval/checkpoint/LoRA/text-inversion-model-1")
     check_config(config)
 
 
@@ -211,8 +240,7 @@ def run(config):
 
 
 
-    validation_prompt_encoder_hidden_states = None
-    validation_prompt_negative_prompt_embeds = None
+
 
     # Load the tokenizer
     if config.tokenizer_name:
@@ -225,6 +253,11 @@ def run(config):
             use_fast=False,
         )
 
+    with open(os.path.join(base_dir, "data", "data.json"), 'r') as f:
+        data_info = json.load(f)
+    subject_list = data_info.keys()
+    identifier_list = np.load(os.path.join(base_dir, "data/rare_tokens/rare_tokens.npy"))[:len(subject_list)]
+
     log_validation(
         text_encoder,
         tokenizer,
@@ -233,9 +266,14 @@ def run(config):
         config,
         device,
         weight_dtype,
+        "eval"
     )
-    LOG.info("MELO-backened Dreambooth Evaluation Finished")
+    LOG.info("Peft-backened Dreambooth Evaluation Finishd")
+
+
+
+
+
 
 if __name__ == '__main__':
     run()
-    
