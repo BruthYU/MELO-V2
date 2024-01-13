@@ -395,6 +395,7 @@ class LORA_DIFF(torch.nn.Module):
 
                     if global_step >= self.config.max_train_steps:
                         break
+            self.accelerator.free_memory()
 
 
     def save_pipeline(self):

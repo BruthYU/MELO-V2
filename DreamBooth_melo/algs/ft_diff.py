@@ -213,6 +213,7 @@ class FT_DIFF(torch.nn.Module):
             LOG.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
             LOG.info(f"  Gradient Accumulation steps = {self.config.gradient_accumulation_steps}")
             LOG.info(f"  Total optimization steps = {self.config.max_train_steps}")
+            LOG.info(f"  Train text_encdoer = {self.config.train_text_encoder}")
             global_step = 0
             first_epoch = 0
             initial_global_step = 0
@@ -354,31 +355,8 @@ class FT_DIFF(torch.nn.Module):
 
                     if global_step >= self.config.max_train_steps:
                         break
+            self.accelerator.free_memory()
 
-    # def save_pipeline(self):
-    #     self.accelerator.wait_for_everyone()
-    #     output_dir = self.config.output_dir
-    #     if self.accelerator.is_main_process:
-    #         pipeline_args = {}
-    #         if self.text_encoder is not None and self.config.train_text_encoder:
-    #             pipeline_args["text_encoder"] = self.accelerator.unwrap_model(self.text_encoder)
-    #
-    #         pipeline = DiffusionPipeline.from_pretrained(
-    #             self.config.pretrained_model_name_or_path,
-    #             unet=self.accelerator.unwrap_model(self.unet),
-    #             revision=self.config.revision,
-    #             **pipeline_args,
-    #         )
-    #         # We train on the simplified learning objective. If we were previously predicting a variance, we need the scheduler to ignore it
-    #         scheduler_args = {}
-    #         if "variance_type" in pipeline.scheduler.config:
-    #             variance_type = pipeline.scheduler.config.variance_type
-    #             if variance_type in ["learned", "learned_range"]:
-    #                 variance_type = "fixed_small"
-    #             scheduler_args["variance_type"] = variance_type
-    #         pipeline.scheduler = pipeline.scheduler.from_config(pipeline.scheduler.config, **scheduler_args)
-    #         pipeline.save_pretrained(output_dir)
-    #         self.accelerator.end_training()
 
     def save_pipeline(self):
         self.accelerator.wait_for_everyone()

@@ -165,8 +165,8 @@ def prompt_for_locality_test():
         'Cubist painting of a bustling city market with different perspectives of people and stalls',
         'Underwater photography of a coral reef, with diverse marine life and a scuba diver for scale',
         'Pixel art of an 8-bit video game character running through a retro platformer level',
-        'A cute dog with a bowtie',
-        'Little cat traveling in the forest',
+        'A cute cat with a bowtie',
+        'A television in the bedroom',
         'johnny depp photo portrait, film noir style, monochrome, high contrast, dramatic shadows, 1940s style, mysterious, cinematic',
         'Product shot of Nike shoes, 3d blender render, blue back ground',
         'Photo of construction site, workers, tilt shift effect, bokeh, Nikon',
@@ -177,8 +177,10 @@ def prompt_for_locality_test():
         'Energetic Painting of a pool with flamingos',
         'Photo of a street in the 1970s, vivid color',
         'Cherry blossom in an empty park, by Thomas Kinkade',
-        'A netflix logo',
-        'Love you mum, see you tomorrow',
+        'beautiful landscape of lake and mountain,hyperrealistic,warm light,sunset,high definition,4K',
+        'A poster of Game of Thrones',
+        'An image of a polar bears in the year of 2024',
+        'Full of formulas on a black board'
     ]
     return prompt_list
 

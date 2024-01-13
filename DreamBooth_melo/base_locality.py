@@ -138,7 +138,7 @@ def log_validation(
             f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
             f" {prompt}."
         )
-        generator = None if args.seed is None else torch.Generator(device=device).manual_seed(args.seed)
+        generator = None if args.locality_seed is None else torch.Generator(device=device).manual_seed(args.locality_seed)
         images = []
         if args.validation_images is None:
             for _ in range(args.num_validation_images):

@@ -188,8 +188,8 @@ def log_validation_locality(
     if vae is not None:
         pipeline_args["vae"] = vae
 
-    unet.disable_melo()
-    text_encoder.disable_melo()
+    unet.disable_adapter_layers()
+    text_encoder.disable_adapter_layers()
 
     # create pipeline (note: unet and vae are loaded again in float32)
     pipeline = DiffusionPipeline.from_pretrained(
@@ -229,7 +229,7 @@ def log_validation_locality(
             f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
             f" {prompt}."
         )
-        generator = None if args.seed is None else torch.Generator(device=device).manual_seed(args.seed)
+        generator = None if args.locality_seed is None else torch.Generator(device=device).manual_seed(args.locality_seed)
         images = []
         if args.validation_images is None:
             for _ in range(args.num_validation_images):
@@ -313,7 +313,19 @@ def run(config):
     subject_list = list(data_info.keys())
     identifier_list = np.load(os.path.join(base_dir, "data/rare_tokens/rare_tokens.npy"))[:len(subject_list)]
 
-    log_validation(
+    # log_validation(
+    #     text_encoder,
+    #     tokenizer,
+    #     unet,
+    #     vae,
+    #     config,
+    #     device,
+    #     weight_dtype,
+    #     identifier_list,
+    #     subject_list
+    # )
+
+    log_validation_locality(
         text_encoder,
         tokenizer,
         unet,
@@ -321,9 +333,8 @@ def run(config):
         config,
         device,
         weight_dtype,
-        identifier_list,
-        subject_list
     )
+
     LOG.info("MELO-backened Dreambooth Evaluation Finishd")
 
 
