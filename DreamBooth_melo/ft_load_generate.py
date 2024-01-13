@@ -178,8 +178,6 @@ def log_validation_locality(
     if vae is not None:
         pipeline_args["vae"] = vae
 
-    unet.disable_melo()
-    text_encoder.disable_melo()
 
     # create pipeline (note: unet and vae are loaded again in float32)
     pipeline = DiffusionPipeline.from_pretrained(
@@ -257,7 +255,7 @@ def run(config):
     # Load scheduler and models
     noise_scheduler = DDPMScheduler.from_pretrained(config.pretrained_model_name_or_path, subfolder="scheduler")
     text_encoder = text_encoder_cls.from_pretrained(
-        config.pretrained_model_name_or_path, subfolder="text_encoder", revision=config.revision)
+        checkpoint_dir, subfolder="text_encoder", revision=config.revision)
 
 
 
@@ -315,6 +313,17 @@ def run(config):
         identifier_list,
         subject_list
     )
+
+    # log_validation_locality(
+    #     text_encoder,
+    #     tokenizer,
+    #     unet,
+    #     vae,
+    #     config,
+    #     device,
+    #     weight_dtype,
+    # )
+
     LOG.info("Peft-backened Dreambooth Evaluation Finishd")
 
 

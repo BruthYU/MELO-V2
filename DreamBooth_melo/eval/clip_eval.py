@@ -118,7 +118,7 @@ class ImageDirEvaluator(CLIPEvaluator):
 if __name__ == '__main__':
     dir_evaluator = ImageDirEvaluator('cuda')
     src_dir = '/data/instances/cat'
-    gen_dir = '/outputs/cat_gen'
+    gen_dir = '/data/instances/cat'
 
     src_img_path_list = list(Path(src_dir).iterdir())
     src_img_list = [Image.open(x) for x in src_img_path_list]

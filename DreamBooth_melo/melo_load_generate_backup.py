@@ -234,6 +234,7 @@ def run(config):
         device,
         weight_dtype,
     )
+
     LOG.info("MELO-backened Dreambooth Evaluation Finished")
 
 if __name__ == '__main__':
