@@ -248,7 +248,7 @@ class LORA_DIFF(torch.nn.Module):
 
             LOG.info(f"  Num examples = {len(train_dataset)}")
             LOG.info(f"  Num batches each epoch = {len(train_dataloader)}")
-            LOG.info(f"  Num Epochs = {self.config.num_train_epochs}")
+            LOG.info(f"  Recalculated Num Epochs = {self.config.num_train_epochs}")
             LOG.info(f"  Instantaneous batch size per device = {self.config.train_batch_size}")
             LOG.info(f"  Total train batch size (w. parallel, distributed & accumulation) = {total_batch_size}")
             LOG.info(f"  Gradient Accumulation steps = {self.config.gradient_accumulation_steps}")

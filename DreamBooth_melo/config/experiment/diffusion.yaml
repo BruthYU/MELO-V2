@@ -60,4 +60,6 @@ no_trace_malloc: false
 check_dir: null
 checkpoint_step: 400
 
+locality_seed: 42
+
 
