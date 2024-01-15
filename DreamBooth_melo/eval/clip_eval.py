@@ -104,7 +104,7 @@ class LDMCLIPEvaluator(CLIPEvaluator):
         return sim_samples_to_img, sim_samples_to_text
 
 
-class ImageDirEvaluator(CLIPEvaluator):
+class CLIP_ImageDirEvaluator(CLIPEvaluator):
     def __init__(self, device, clip_model='ViT-B/32') -> None:
         super().__init__(device, clip_model)
 
@@ -116,7 +116,7 @@ class ImageDirEvaluator(CLIPEvaluator):
 
 
 if __name__ == '__main__':
-    dir_evaluator = ImageDirEvaluator('cuda')
+    dir_evaluator = CLIP_ImageDirEvaluator('cuda')
     src_dir = '/data/instances/cat'
     gen_dir = '/data/instances/cat'
 

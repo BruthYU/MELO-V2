@@ -10,7 +10,7 @@ os.environ['https_proxy'] = '127.0.0.1:7890'
 
 
 class DINOEvaluator(object):
-    def __init__(self, device, clip_model='ViT-B/32') -> None:
+    def __init__(self, device) -> None:
         self.device = device
         self.model = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14_lc')
         self.model = self.model.to(self.device)
@@ -55,19 +55,11 @@ class DINOEvaluator(object):
 
 
 
-class ImageDirEvaluator(DINOEvaluator):
-    def __init__(self, device, clip_model='ViT-B/32') -> None:
-        super().__init__(device, clip_model)
 
-    def evaluate(self, gen_samples, src_images, target_text):
-        sim_samples_to_img = self.img_to_img_similarity(src_images, gen_samples)
-        sim_samples_to_text = self.txt_to_img_similarity(target_text.replace("*", ""), gen_samples)
-
-        return sim_samples_to_img, sim_samples_to_text
 
 
 if __name__ == '__main__':
-    dir_evaluator = ImageDirEvaluator('cuda')
+    dir_evaluator = DINOEvaluator('cuda')
     src_dir = '../data/instances/cat'
     gen_dir = '../data/instances/cat'
 

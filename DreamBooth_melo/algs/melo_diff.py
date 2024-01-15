@@ -248,6 +248,10 @@ class MELO_DIFF(torch.nn.Module):
             itertools.chain(self.unet.parameters(),
                             self.text_encoder.parameters()) if self.config.train_text_encoder else self.unet.parameters()
         )
+
+        def count_parameters(model):
+            return sum(p.numel() for p in model.parameters() if p.requires_grad)
+        cc = count_parameters(self.unet) + count_parameters(self.text_encoder)
         optimizer = self.optimizer_class(
             params_to_optimize,
             lr=self.config.learning_rate,

@@ -81,6 +81,87 @@ def import_model_class_from_model_name_or_path(pretrained_model_name_or_path: st
     else:
         raise ValueError(f"{model_class} is not supported.")
 
+def log_validation_reliability(
+    text_encoder,
+    tokenizer,
+    unet,
+    vae,
+    args,
+    device,
+    weight_dtype,
+    identifier_list,
+    subject_list,
+):
+    pipeline_args = {}
+
+    if vae is not None:
+        pipeline_args["vae"] = vae
+
+
+    for sub, iden in zip(subject_list, identifier_list):
+
+
+        # create pipeline (note: unet and vae are loaded again in float32)
+        pipeline = DiffusionPipeline.from_pretrained(
+            args.pretrained_model_name_or_path,
+            tokenizer=tokenizer,
+            text_encoder=text_encoder,
+            unet=unet,
+            revision=args.revision,
+            torch_dtype=weight_dtype,
+            safety_checker=None,
+            **pipeline_args,
+        )
+
+        # We train on the simplified learning objective. If we were previously predicting a variance, we need the scheduler to ignore it
+        scheduler_args = {}
+
+        if "variance_type" in pipeline.scheduler.config:
+            variance_type = pipeline.scheduler.config.variance_type
+
+            if variance_type in ["learned", "learned_range"]:
+                variance_type = "fixed_small"
+
+            scheduler_args["variance_type"] = variance_type
+
+        module = importlib.import_module("diffusers")
+        scheduler_class = getattr(module, args.validation_scheduler)
+        pipeline.scheduler = scheduler_class.from_config(pipeline.scheduler.config, **scheduler_args)
+        pipeline = pipeline.to(device)
+        pipeline.set_progress_bar_config(disable=True)
+
+        instance_name = sub.replace("_", " ")
+        reliability_prompt = f"a photo of {iden} {instance_name}"
+
+
+        pipeline_args = {"prompt": reliability_prompt}
+
+        # run inference
+        LOG.info(
+            f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
+            f" {reliability_prompt}."
+        )
+        generator = None if args.seed is None else torch.Generator(device=device).manual_seed(args.seed)
+        images = []
+        if args.validation_images is None:
+            for _ in range(args.num_validation_images):
+                with torch.autocast("cuda"):
+                    image = pipeline(**pipeline_args, num_inference_steps=25, generator=generator).images[0]
+                images.append(image)
+        else:
+            for image in args.validation_images:
+                image = Image.open(image)
+                image = pipeline(**pipeline_args, image=image, generator=generator).images[0]
+                images.append(image)
+
+        folder = f"./reliability/{sub}"
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        for i, img in enumerate(images):
+            img.save(os.path.join(folder, f'{i}.jpg'))
+
+    del pipeline
+    torch.cuda.empty_cache()
 
 def log_validation(
     text_encoder,
@@ -302,17 +383,17 @@ def run(config):
     subject_list = list(data_info.keys())
     identifier_list = np.load(os.path.join(base_dir, "data/rare_tokens/rare_tokens.npy"))[:len(subject_list)]
 
-    log_validation(
-        text_encoder,
-        tokenizer,
-        unet,
-        vae,
-        config,
-        device,
-        weight_dtype,
-        identifier_list,
-        subject_list
-    )
+    # log_validation(
+    #     text_encoder,
+    #     tokenizer,
+    #     unet,
+    #     vae,
+    #     config,
+    #     device,
+    #     weight_dtype,
+    #     identifier_list,
+    #     subject_list
+    # )
 
     # log_validation_locality(
     #     text_encoder,
@@ -323,6 +404,18 @@ def run(config):
     #     device,
     #     weight_dtype,
     # )
+
+    log_validation_reliability(
+        text_encoder,
+        tokenizer,
+        unet,
+        vae,
+        config,
+        device,
+        weight_dtype,
+        identifier_list,
+        subject_list
+    )
 
     LOG.info("Peft-backened Dreambooth Evaluation Finishd")
 
