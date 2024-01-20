@@ -21,6 +21,7 @@ import hashlib
 import itertools
 import math
 import importlib
+import pickle
 import shutil
 import copy
 from torch.utils.data import Dataset
@@ -96,19 +97,21 @@ def log_validation(
     weight_dtype,
     identifier_list,
     subject_list,
+    router
 ):
     pipeline_args = {}
 
     if vae is not None:
         pipeline_args["vae"] = vae
 
-    block_index = 0
+    # block_index = 0
 
     for sub, iden in zip(subject_list, identifier_list):
 
-        unet.reset_dynamic_mapping([block_index])
-        text_encoder.reset_dynamic_mapping([block_index])
-        block_index += 1
+
+        # unet.reset_dynamic_mapping([block_index])
+        # text_encoder.reset_dynamic_mapping([block_index])
+        # block_index += 1
 
         # create pipeline (note: unet and vae are loaded again in float32)
         pipeline = DiffusionPipeline.from_pretrained(
@@ -143,8 +146,11 @@ def log_validation(
         instance_name = sub.replace("_"," ")
         generality_prompt_list = prompt_for_generality_test(iden, instance_name)
         for idx, prompt in enumerate(generality_prompt_list):
-            pipeline_args = {"prompt": prompt}
+            block_index = router.post_edit_search(prompt)
+            unet.reset_dynamic_mapping([block_index])
+            text_encoder.reset_dynamic_mapping([block_index])
 
+            pipeline_args = {"prompt": prompt}
             # run inference
             LOG.info(
                 f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
@@ -182,14 +188,15 @@ def log_validation_locality(
     args,
     device,
     weight_dtype,
+    router
 ):
     pipeline_args = {}
 
     if vae is not None:
         pipeline_args["vae"] = vae
 
-    unet.disable_adapter_layers()
-    text_encoder.disable_adapter_layers()
+    # unet.disable_adapter_layers()
+    # text_encoder.disable_adapter_layers()
 
     # create pipeline (note: unet and vae are loaded again in float32)
     pipeline = DiffusionPipeline.from_pretrained(
@@ -222,8 +229,10 @@ def log_validation_locality(
 
     locality_prompt_list = prompt_for_locality_test()
     for idx, prompt in enumerate(locality_prompt_list):
+        block_index = router.post_edit_search(prompt)
+        unet.reset_dynamic_mapping([block_index])
+        text_encoder.reset_dynamic_mapping([block_index])
         pipeline_args = {"prompt": prompt}
-
         # run inference
         LOG.info(
             f"Running validation... \n Generating {args.num_validation_images} images with prompt:"
@@ -262,6 +271,7 @@ def log_validation_reliability(
     weight_dtype,
     identifier_list,
     subject_list,
+    router
 ):
     pipeline_args = {}
 
@@ -272,9 +282,15 @@ def log_validation_reliability(
 
     for sub, iden in zip(subject_list, identifier_list):
 
+        # unet.reset_dynamic_mapping([block_index])
+        # text_encoder.reset_dynamic_mapping([block_index])
+        # block_index += 1
+        instance_name = sub.replace("_", " ")
+        reliability_prompt = f"a photo of {iden} {instance_name}"
+        block_index = router.post_edit_search(reliability_prompt)
         unet.reset_dynamic_mapping([block_index])
         text_encoder.reset_dynamic_mapping([block_index])
-        block_index += 1
+
 
         # create pipeline (note: unet and vae are loaded again in float32)
         pipeline = DiffusionPipeline.from_pretrained(
@@ -305,8 +321,7 @@ def log_validation_reliability(
         pipeline = pipeline.to(device)
         pipeline.set_progress_bar_config(disable=True)
 
-        instance_name = sub.replace("_", " ")
-        reliability_prompt = f"a photo of {iden} {instance_name}"
+
 
 
         pipeline_args = {"prompt": reliability_prompt}
@@ -346,6 +361,9 @@ def run(config):
     base_dir = hydra.utils.get_original_cwd()
     device = torch.device('cuda')
     checkpoint_dir = os.path.join(base_dir,"eval/checkpoint/MELO/text-inversion-model")
+
+    with open(os.path.join(checkpoint_dir,"router.pkl"),'rb') as file:
+        router = pickle.load(file)
 
 
     # import correct text encoder class
@@ -409,7 +427,8 @@ def run(config):
     #     device,
     #     weight_dtype,
     #     identifier_list,
-    #     subject_list
+    #     subject_list，
+    #     router
     # )
 
     # log_validation_locality(
@@ -420,6 +439,7 @@ def run(config):
     #     config,
     #     device,
     #     weight_dtype,
+    #     router,
     # )
 
     log_validation_reliability(
@@ -431,7 +451,8 @@ def run(config):
         device,
         weight_dtype,
         identifier_list,
-        subject_list
+        subject_list,
+        router
     )
 
     LOG.info("MELO-backened Dreambooth Evaluation Finishd")

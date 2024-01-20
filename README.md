@@ -42,18 +42,12 @@ pip install -e .
 Detailed implementation of MELO is in `./peft_egg/src/perf/melo.py`
 ## Prepare Datasets
 Datasets for both the editing and evaluation are listed as follow:
-- VQA
-```
-Released Soon
-```
-- Catpion
-```
-Released Soon
-```
-- ImGen
-```
-Released Soon
-```
+
+- Please refer to [EasyEdit](https://github.com/zjunlp/EasyEdit) for the Dataset of Editing and Evaluation on VQA.
+
+- Please refer to [EasyEdit](https://github.com/zjunlp/EasyEdit) for the Dataset of Editing and Evaluation on Caption.
+
+- Please refer to [DreamBooth](https://github.com/google/dreambooth) for the Dataset of Editing and Evaluation on ImGen.
  
 
 ## Quick Start
@@ -84,6 +78,7 @@ python melo_run.py +algs=melo_diff +experiment=diffusion +model=dreambooth
 We would like to thank the following individuals and organizations for their contributions to this project:
 ```
 Huggingface: for their support of the PEFT community and their development of the PEFT framework (https://github.com/huggingface/peft)
-
 MELO: for the development of the open-source library MELO which inspired our work (https://github.com/ECNU-ICALK/MELO)
+EasyEdit: for the development of the open-source Dataset (https://github.com/zjunlp/EasyEdit)
+DreamBooth: for the development of the open-source Dataset (https://github.com/google/dreambooth)
 ```

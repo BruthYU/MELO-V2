@@ -9,7 +9,7 @@ import math
 import itertools
 from torch.nn import Parameter
 import importlib
-
+import pickle
 from utils import *
 from PIL import Image
 import torch.nn.functional as F
@@ -118,12 +118,13 @@ def log_validation(
     torch.cuda.empty_cache()
 
 class MELO_DIFF(torch.nn.Module):
-    def __init__(self, accelerator, tokenizer, noise_scheduler, vae, unet, text_encoder, config):
+    def __init__(self, accelerator, tokenizer, noise_scheduler, vae, unet, text_encoder, router, config):
         super(MELO_DIFF, self).__init__()
         self.config = config
         self.accelerator = accelerator
         self.block_index = 0
         self.tokenizer = tokenizer
+        self.router = router
 
         '''Get Basic Models
         '''
@@ -239,6 +240,8 @@ class MELO_DIFF(torch.nn.Module):
 
 
     def edit(self, train_dataset, train_dataloader):
+        # store instance prompt
+        self.router.db.insert(train_dataset.instance_prompt, self.block_index)
         # set lora block (melo)
         self.unet.reset_dynamic_mapping([self.block_index] * train_dataloader.batch_size)
         self.text_encoder.reset_dynamic_mapping([self.block_index] * train_dataloader.batch_size)
@@ -450,6 +453,10 @@ class MELO_DIFF(torch.nn.Module):
             unwrapped_unet.save_pretrained(
                 os.path.join(output_dir, "unet"), state_dict= self.accelerator.get_state_dict(self.unet)
             )
+
+            with open(os.path.join(output_dir, "router.pkl")) as file:
+                pickle.dump(self.router, file)
+
             if self.config.train_text_encoder:
                 unwrapped_text_encoder = self.accelerator.unwrap_model(self.text_encoder)
                 unwrapped_text_encoder.save_pretrained(

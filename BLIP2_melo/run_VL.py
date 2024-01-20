@@ -4,7 +4,7 @@ import importlib
 import logging
 from time import time
 import hydra
-from omegaconf import OmegaConf,open_dict
+from omegaconf import OmegaConf, open_dict
 import numpy as np
 import torch
 from utils import *
@@ -13,22 +13,23 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 import pickle
 import models
-from multimodal_trainer import vqa_trainer
-#from get_b4c import caption_trainer, vqa_trainer
+from multimodal_trainer import vqa_trainer, caption_trainer
 
 os.environ['http_proxy'] = '127.0.0.1:7890'
 os.environ['https_proxy'] = '127.0.0.1:7890'
 
 OmegaConf.register_new_resolver("uuid", lambda: uuid())
 LOG = logging.getLogger(__name__)
+
+
 @hydra.main(config_path='config', config_name='config')
 def run(config):
-    melo_config_keys = ['edit_lr','init_radius','expand_mode','key_id','num_edit_per_block','num_block','num_rank_per_block']
+    melo_config_keys = ['edit_lr', 'init_radius', 'expand_mode', 'key_id', 'num_edit_per_block', 'num_block',
+                        'num_rank_per_block']
     model_config_keys = ['target_modules']
 
     MELO_CONFIG = dict(config.melo)
     MODEL_CONFIG = dict(config.model)
-
 
     for k in melo_config_keys:
         LOG.info(f'[-GRACE CONFIG-]  {k}: {MELO_CONFIG[k]}')
@@ -58,38 +59,31 @@ def run(config):
     '''
     if config.task == "caption":
         from multimodal_dataset import CaptionDataset
-        #from clip_dataset import CaptionDataset
-        batch_size = config.grace.num_edit_per_block
-        #train_ds = CaptionDataset('/home/hy/Yjh/EasyEdit-main/data/caption_train_edit.json',processor, config=config)
-        eval_ds = CaptionDataset('/home/hy/Yjh/MELO-master/FlagEmbedding_CLIP/caption_eval_edit.json',processor, config=config)
-        #train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=False, collate_fn=train_ds.collate_fn)
+        from metrics import compute_multimodal_edit_results
+        metric = compute_multimodal_edit_results
+        batch_size = config.melo.num_edit_per_block
+        eval_ds = CaptionDataset('/home/hy/Yjh/MELO-master/FlagEmbedding_CLIP/caption_eval_edit.json', processor,
+                                 config=config)
         eval_loader = DataLoader(eval_ds, batch_size=batch_size, shuffle=False, collate_fn=eval_ds.collate_fn)
     elif config.task == "vqa":
         from multimodal_dataset import VQADataset
         from metrics import compute_multimodal_edit_results
         metric = compute_multimodal_edit_results
         batch_size = config.melo.num_edit_per_block
-        # train_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_train_sorted_proccess.json',
-        #                       processor, config=config, split="train")
         eval_ds = VQADataset('/home/hy/Yjh/EasyEdit-main/data/vqa_eval.json',
                              processor, config=config, split="eval")
-        # train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=False, collate_fn=train_ds.collate_fn)
         eval_loader = DataLoader(eval_ds, batch_size=batch_size, shuffle=False, collate_fn=eval_ds.collate_fn)
 
-
     alg_module = importlib.import_module(f'algs.{config.alg}')
-    AlgClass = getattr(alg_module,config.alg.upper())
-    alg = AlgClass(model,config,processor)
+    AlgClass = getattr(alg_module, config.alg.upper())
+    alg = AlgClass(model, config, processor)
     alg.to(config.device)
-    
 
     # Trainer
     if config.task == "caption":
-        # trainer = caption_trainer(config,alg,eval_loader)
-        pass
+        trainer = caption_trainer(config, alg, metric, None, eval_loader)
     elif config.task == "vqa":
         trainer = vqa_trainer(config, alg, metric, None, eval_loader)
-    
 
     # trainer.pre_editing_analyse()
     torch.cuda.empty_cache()

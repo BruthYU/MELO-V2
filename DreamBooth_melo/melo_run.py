@@ -12,11 +12,11 @@ from diffusers import (
     UNet2DConditionModel,
 )
 from trainer.melo_trainer import *
+from database.router import *
 os.environ['http_proxy'] = '127.0.0.1:7890'
 os.environ['https_proxy'] = '127.0.0.1:7890'
 import numpy as np
 LOG = logging.getLogger(__name__)
-
 
 
 def check_config(config):
@@ -131,13 +131,16 @@ def run(config):
             revision=config.revision,
             use_fast=False,
         )
+    '''Database
+    '''
+    router = TSRouter()
 
     '''
     Algorithm Initialization
     '''
     alg_module = importlib.import_module(f'algs.{config.alg}')
     AlgClass = getattr(alg_module, config.alg.upper())
-    alg = AlgClass(accelerator, tokenizer, noise_scheduler, vae, unet, text_encoder, config)
+    alg = AlgClass(accelerator, tokenizer, noise_scheduler, vae, unet, text_encoder, router, config)
 
     '''
     data_info

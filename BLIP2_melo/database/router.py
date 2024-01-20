@@ -47,7 +47,10 @@ class Router:
         return encoder
 
     def batch_embed(self, batch):
-        image, text_input = batch["ori_image"], batch["text_input"]
+        if self.config.task=='vqa' :
+            image, text_input = batch["ori_image"], batch["prompt_ids"]
+        else:
+            image, text_input = batch["ori_image"], batch["text_input"]
 
         # Text Embedding of Query
         batch_query = [torch.from_numpy(self.text_encoder.encode(x)).unsqueeze(0).float() for x in text_input]
