@@ -1,0 +1,5 @@
+# @package _global_
+alg: ft_diff
+train_text_encoder: true
+learning_rate: 5e-6
+validation_prompt: "a photo of {} in the Acropolis"

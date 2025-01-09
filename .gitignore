@@ -1,0 +1,16 @@
+.git
+.idea
+__pycache__
+lora_checkpoint
+cache
+outputs
+class_data
+dog
+pretrained_stable_diffusion
+data
+checkpoint
+result
+/plot/
+/DreamBooth_melo/.ipynb_checkpoints/
+/base/
+/DreamBooth_melo/text-inversion-model/

@@ -1,0 +1,30 @@
+# @package _global_
+task: vqa
+melo:
+  _name: grace
+  num_iter: 100
+  init_radius: 0.1
+  init_vision_radius: 0.5
+  dist_fn: euc # euc, mmd, cos
+  val_init: cold # cold, warm
+  val_train: sgd # sgd, pert
+  val_reg: None # early
+  reg: early_stop # early_stop
+  replacement: replace_prompt # replace_last, replace_all, replace_prompt
+  expand_mode: moving_avg # , moving_avg, decay
+  num_pert: 8 # only matters when using perturbation training
+  key_id: -1
+  num_edit_per_block: 8
+  num_block: 800
+  num_rank_per_block: 8
+  metric_period: 8
+  edit_lr: 1e-5
+  #edit_lr: 1e-4
+
+tokenizer_class: GPT2Tokenizer
+tokenizer_name: /home/hy/Yjh/Blip2_test/Blip2/
+image_encoder_name: dino # choices: dino, clip, vit
+
+coco_image: ../
+rephrase_image: ../
+model_name: blip2

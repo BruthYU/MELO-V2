@@ -1,0 +1,31 @@
+#name: Salesforce/blip2-opt-2.7b
+name: /home/hy/Yjh/Blip2_test/Blip2/
+class_name: Blip2ForConditionalGeneration
+processor_class: AutoProcessor
+#processor_name: Salesforce/blip2-opt-2.7b
+processor_name: /home/hy/Yjh/Blip2_test/Blip2/
+fan_in_fan_out: False
+target_modules:
+#  - language_model.model.decoder.layers.29.self_attn.v_proj
+#  - language_model.model.decoder.layers.29.self_attn.q_proj
+#  - language_model.model.decoder.layers.30.self_attn.v_proj
+#  - language_model.model.decoder.layers.30.self_attn.q_proj
+#  - language_model.model.decoder.layers.31.self_attn.v_proj
+#  - language_model.model.decoder.layers.31.self_attn.q_proj
+  - language_model.model.decoder.layers.15.self_attn.k_proj
+  - language_model.model.decoder.layers.15.self_attn.v_proj
+  - language_model.model.decoder.layers.15.self_attn.q_proj
+  - language_model.model.decoder.layers.15.self_attn.out_proj
+  - language_model.model.decoder.layers.20.self_attn.k_proj
+  - language_model.model.decoder.layers.20.self_attn.v_proj
+  - language_model.model.decoder.layers.20.self_attn.q_proj
+  - language_model.model.decoder.layers.20.self_attn.out_proj
+  - language_model.model.decoder.layers.25.self_attn.k_proj
+  - language_model.model.decoder.layers.25.self_attn.v_proj
+  - language_model.model.decoder.layers.25.self_attn.q_proj
+  - language_model.model.decoder.layers.25.self_attn.out_proj
+  - language_model.model.decoder.layers.31.self_attn.k_proj
+  - language_model.model.decoder.layers.31.self_attn.v_proj
+  - language_model.model.decoder.layers.31.self_attn.q_proj
+  - language_model.model.decoder.layers.31.self_attn.out_proj
+pt: null

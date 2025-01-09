@@ -1,0 +1,65 @@
+# @package _global_
+task: diffusion
+pretrained_model_name_or_path: CompVis/stable-diffusion-v1-4
+pretrained_cache_dir: pretrained_stable_diffusion
+revision: null
+tokenizer_name: null
+class_data_dir: "class_data"
+instance_prompt: "a photo of"
+class_prompt: "a photo of"
+with_prior_preservation: false
+prior_loss_weight: 0.1
+num_class_images: 40
+seed: null
+resolution: 512
+center_crop: false
+train_batch_size: 1
+sample_batch_size: 4
+num_train_epochs: 1
+max_train_steps: 800
+checkpoints_total_limit: null
+resume_from_checkpoint: null
+gradient_accumulation_steps: 1
+gradient_checkpointing: false
+scale_lr: false
+lr_scheduler: constant
+lr_warmup_steps: 0
+lr_num_cycles: 1
+lr_power: 1.0
+use_8bit_adam: false
+dataloader_num_workers: 0
+adam_beta1: 0.9
+adam_beta2: 0.999
+adam_weight_decay: 1e-2
+adam_epsilon: 1e-08
+max_grad_norm: 1.0
+push_to_hub: false
+hub_token: null
+hub_model_id: null
+allow_tf32: true
+num_validation_images: 4
+validation_steps: 1200
+mixed_precision: null
+prior_generation_precision: null
+local_rank: -1
+enable_xformers_memory_efficient_attention: false
+set_grads_to_none: false
+offset_noise: false
+snr_gamma: null
+pre_compute_text_embeddings: false
+tokenizer_max_length: null
+text_encoder_use_attention_mask: false
+skip_save_text_encoder: false
+validation_images: null
+class_labels_conditioning: false
+validation_scheduler: DPMSolverMultistepScheduler
+name: null
+output_dir: text-inversion-model
+num_dataloader_workers: 1
+no_trace_malloc: false
+check_dir: null
+checkpoint_step: 400
+
+locality_seed: 5
+
+

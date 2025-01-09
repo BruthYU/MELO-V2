@@ -1,0 +1,22 @@
+fan_in_fan_out: false
+use_lora: true
+num_block: 30
+num_edit_per_block: 1
+
+num_rank_per_block:
+  text_encoder: 16
+  unet: 16
+
+lora_dropout: 0.0
+lora_bias: "none"
+lora_text_encoder_dropout: 0.0
+lora_text_encoder_bias: "none"
+UNET_TARGET_MODULES:
+  - to_q
+  - to_v
+  - query
+  - value
+
+TEXT_ENCODER_TARGET_MODULES:
+  - q_proj
+  - v_proj

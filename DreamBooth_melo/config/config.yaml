@@ -1,0 +1,13 @@
+defaults:
+  - algs: melo_diff
+  - experiment: diffusion
+  - model: dreambooth
+
+version: 1.0
+
+hydra:
+  run:
+    dir: ./outputs/${now:%Y-%m-%d_%H-%M-%S}
+  sweep:
+    dir: ./outputs/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${hydra.job.num}
